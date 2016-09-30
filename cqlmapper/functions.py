@@ -15,7 +15,7 @@
 from __future__ import division
 from datetime import datetime
 
-from cassandra.cqlengine import UnicodeMixin, ValidationError
+from cqlmapper import UnicodeMixin, ValidationError
 
 import sys
 

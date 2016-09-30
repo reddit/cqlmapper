@@ -16,8 +16,8 @@ import six
 
 from cassandra.cluster import _NOT_SET
 
-CONNECTION_NOT_SET = _NOT_SET
 
+TIMEOUT_NOT_SET = _NOT_SET
 
 # Caching constants.
 CACHING_ALL = "ALL"
@@ -32,6 +32,20 @@ class CQLEngineException(Exception):
 
 class ValidationError(CQLEngineException):
     pass
+
+
+class LWTException(CQLEngineException):
+    """Lightweight conditional exception.
+
+    This exception will be raised when a write using an `IF` clause could not be
+    applied due to existing data violating the condition. The existing data is
+    available through the ``existing`` attribute.
+
+    :param existing: The current state of the data which prevented the write.
+    """
+    def __init__(self, existing):
+        super(LWTException, self).__init__("LWT Query was not applied")
+        self.existing = existing
 
 
 class UnicodeMixin(object):

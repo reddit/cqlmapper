@@ -1,0 +1,44 @@
+*.py[co]
+*.swp
+*.swo
+*.so
+*.egg
+*.egg-info
+*.attr
+.tox
+.python-version
+build
+MANIFEST
+dist
+.coverage
+nosetests.xml
+cover/
+docs/_build/
+tests/integration/ccm
+setuptools*.tar.gz
+setuptools*.egg
+
+cassandra/*.c
+!cassandra/cmurmur3.c
+cassandra/*.html
+tests/unit/cython/bytesio_testhelper.c
+
+# OSX
+.DS_Store
+
+# IDE
+.project
+.pydevproject
+.settings/
+.idea/
+*.iml
+
+.DS_Store
+
+# Unit test / coverage reports
+.coverage
+.tox
+
+#iPython
+*.ipynb
+

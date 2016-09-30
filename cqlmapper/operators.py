@@ -13,7 +13,7 @@
 # limitations under the License.
 import six
 
-from cassandra.cqlengine import UnicodeMixin
+from cqlmapper import UnicodeMixin
 
 
 class QueryOperatorException(Exception):

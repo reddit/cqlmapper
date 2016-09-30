@@ -18,10 +18,10 @@ import six
 from six.moves import filter
 
 from cassandra.query import FETCH_SIZE_UNSET
-from cassandra.cqlengine import columns
-from cassandra.cqlengine import UnicodeMixin
-from cassandra.cqlengine.functions import QueryValue
-from cassandra.cqlengine.operators import BaseWhereOperator, InOperator, EqualsOperator
+from cqlmapper import columns
+from cqlmapper import UnicodeMixin
+from cqlmapper.functions import QueryValue
+from cqlmapper.operators import BaseWhereOperator, InOperator, EqualsOperator
 
 
 class StatementException(Exception):

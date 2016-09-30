@@ -19,9 +19,9 @@ import six
 from uuid import UUID as _UUID
 
 from cassandra import util
-from cassandra.cqltypes import SimpleDateType, _cqltypes, UserType
-from cassandra.cqlengine import ValidationError
-from cassandra.cqlengine.functions import get_total_seconds
+from cassandra.cqltypes import SimpleDateType, _cqltypes
+from cqlmapper import ValidationError
+from cqlmapper.functions import get_total_seconds
 
 log = logging.getLogger(__name__)
 
@@ -505,13 +505,15 @@ class DateTime(Column):
 
     truncate_microseconds = False
     """
-    Set this ``True`` to have model instances truncate the date, quantizing it in the same way it will be in the database.
-    This allows equality comparison between assigned values and values read back from the database::
+    Set this ``True`` to have model instances truncate the date, quantizing it
+    in the same way it will be in the database. This allows equality
+    comparison between assigned values and values read back from the database::
 
         DateTime.truncate_microseconds = True
         assert Model.create(id=0, d=datetime.utcnow()) == Model.objects(id=0).first()
 
-    Defaults to ``False`` to preserve legacy behavior. May change in the future.
+    Defaults to ``False`` to preserve legacy behavior. May change in the
+    future.
     """
 
     def to_python(self, value):
@@ -916,56 +918,6 @@ class Map(BaseContainerColumn):
         if value is None:
             return None
         return dict((self.key_col.to_database(k), self.value_col.to_database(v)) for k, v in value.items())
-
-
-class UDTValueManager(BaseValueManager):
-    @property
-    def changed(self):
-        return self.value != self.previous_value or (self.value is not None and self.value.has_changed_fields())
-
-    def reset_previous_value(self):
-        if self.value is not None:
-            self.value.reset_changed_fields()
-        self.previous_value = copy(self.value)
-
-
-class UserDefinedType(Column):
-    """
-    User Defined Type column
-
-    http://www.datastax.com/documentation/cql/3.1/cql/cql_using/cqlUseUDT.html
-
-    These columns are represented by a specialization of :class:`cassandra.cqlengine.usertype.UserType`.
-
-    Please see :ref:`user_types` for examples and discussion.
-    """
-
-    value_manager = UDTValueManager
-
-    def __init__(self, user_type, **kwargs):
-        """
-        :param type user_type: specifies the :class:`~.cqlengine.usertype.UserType` model of the column
-        """
-        self.user_type = user_type
-        self.db_type = "frozen<%s>" % user_type.type_name()
-        super(UserDefinedType, self).__init__(**kwargs)
-
-    @property
-    def sub_types(self):
-        return list(self.user_type._fields.values())
-
-    @property
-    def cql_type(self):
-        return UserType.make_udt_class(keyspace='', udt_name=self.user_type.type_name(),
-                                       field_names=[c.db_field_name for c in self.user_type._fields.values()],
-                                       field_types=[c.cql_type for c in self.user_type._fields.values()])
-
-
-def resolve_udts(col_def, out_list):
-    for col in col_def.sub_types:
-        resolve_udts(col, out_list)
-    if isinstance(col_def, UserDefinedType):
-        out_list.append(col_def.user_type)
 
 
 class _PartitionKeysToken(Column):
