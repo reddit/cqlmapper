@@ -11,6 +11,7 @@ build
 MANIFEST
 dist
 .coverage
+.vagrant
 nosetests.xml
 cover/
 docs/_build/
