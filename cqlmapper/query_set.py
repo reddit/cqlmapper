@@ -144,10 +144,6 @@ class ModelQuerySet(object):
 
         return clone
 
-    def length(self, conn):
-        self._execute_query(conn)
-        return self.count(conn)
-
     def _select_fields(self):
         """Returns the fields to select."""
         if self._defer_fields or self._only_fields:
