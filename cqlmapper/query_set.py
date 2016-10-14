@@ -52,7 +52,6 @@ class ModelQuerySet(object):
     def __init__(self, model):
         super(ModelQuerySet, self).__init__()
         self.model = model
-        self.statement = None
 
         # Where clause filters
         self._where = []
@@ -213,7 +212,7 @@ class ModelQuerySet(object):
         """
         if self._where:
             self._validate_select_where()
-        self.statement = SelectStatement(
+        return SelectStatement(
             self.column_family_name,
             fields=self._select_fields(),
             where=self._where,
@@ -381,7 +380,7 @@ class ModelQuerySet(object):
         except StopIteration:
             return None
 
-    def all(self):
+    def all(self, conn):
         """Returns a queryset matching all rows.
 
         .. code-block:: python
@@ -389,7 +388,7 @@ class ModelQuerySet(object):
             for user in User.objects().all():
                 print(user)
         """
-        return copy.deepcopy(self)
+        return copy.deepcopy(self).iter(conn)
 
     def consistency(self, consistency):
         """Sets the consistency level for the operation.
@@ -549,6 +548,13 @@ class ModelQuerySet(object):
 
         return clone
 
+    def find(self, conn, *args, **kwargs):
+        if args or kwargs:
+            return self.filter(*args, **kwargs).find(conn)
+
+        self._execute_query(conn)
+        return self.iter(conn)
+
     def get(self, conn, *args, **kwargs):
         """
         Returns a single instance matching this query, optionally with
@@ -569,7 +575,7 @@ class ModelQuerySet(object):
         exception is raised.
         """
         if args or kwargs:
-            return self.filter(*args, **kwargs).get()
+            return self.filter(*args, **kwargs).get(conn)
 
         self._execute_query(conn)
 

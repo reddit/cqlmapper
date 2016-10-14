@@ -645,7 +645,7 @@ class BaseModel(object):
         """
 
         if self._can_update():
-            return self.update()
+            return self.update(conn)
 
         self.validate()
         q = query.SaveDMLQuery(

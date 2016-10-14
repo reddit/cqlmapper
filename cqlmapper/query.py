@@ -14,7 +14,9 @@
 
 from datetime import datetime, timedelta
 import time
+
 import six
+from warnings import warn
 
 from cqlmapper import TIMEOUT_NOT_SET
 from cqlmapper import (
@@ -163,6 +165,8 @@ class BatchQuery(object):
             if not specified fallback to default session timeout
         :type timeout: float or None
         """
+        self.prepared = False
+        self.cleaned_up = False
         self.queries = []
         self.batch_type = batch_type
         if timestamp is not None and not isinstance(timestamp, (datetime, timedelta)):
@@ -175,7 +179,7 @@ class BatchQuery(object):
         self.timeout = timeout
         self._callbacks = []
 
-    def add_query(self, query):
+    def add(self, query):
         if not isinstance(query, BaseCQLStatement):
             raise CQLEngineException(
                 'only BaseCQLStatements can be added to a batch query'
@@ -212,11 +216,12 @@ class BatchQuery(object):
             )
         self._callbacks.append((fn, args, kwargs))
 
-    def __enter__(self):
+    def prepare(self):
         if len(self.queries) == 0:
             # Empty batch is a no-op except for callbacks which will be called
             # by __exit__
             return
+        self.prepared = True
 
         opener = 'BEGIN ' + (self.batch_type + ' ' if self.batch_type else '') + ' BATCH'
         if self.timestamp:
@@ -251,10 +256,10 @@ class BatchQuery(object):
             self.timeout,
         )
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # don't execute if there was an exception by default
-        if exc_type is not None and not self._execute_on_exception:
-            return
+    def cleanup(self):
+        if self.cleaned_up:
+            warn("Batch executed multiple times.")
+        self.cleaned_up = True
         self.queries = []
         self._execute_callbacks()
 

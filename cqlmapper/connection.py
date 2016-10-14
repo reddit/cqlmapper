@@ -53,10 +53,8 @@ class Connection(object):
     lazy_connect_lock = None
     cluster_options = None
 
-    def __init__(self, name, hosts, conn, consistency=None,
-                 retry_connect=False, cluster_options=None):
-        self.hosts = hosts
-        self.name = name
+    def __init__(self, conn, consistency=None, retry_connect=False,
+                 cluster_options=None):
         self.consistency = consistency
         self.retry_connect = retry_connect
         self.cluster_options = cluster_options if cluster_options else {}
@@ -111,15 +109,25 @@ class Connection(object):
         return result
 
     def _execute_batch_query(self, batch):
-        with batch as batch_args:
-            statement, params, consistency, timeout = batch_args
-            return self.execute(
-                statement=statement,
-                params=params,
-                consistency_level=consistency,
-                timeout=timeout,
-                verify_applied=True,
-            )
+        res = None
+        has_error = False
+        try:
+            batch_args = batch.prepare()
+            if batch_args:
+                statement, params, consistency, timeout = batch_args
+                res = self.execute(
+                    statement=statement,
+                    params=params,
+                    consistency_level=consistency,
+                    timeout=timeout,
+                    verify_applied=True,
+                )
+        except Exception as e:
+            if batch._execute_on_exception:
+                batch.cleanup()
+            raise
+        batch.cleanup()
+        return res
 
     def execute_query(self, query):
         if isinstance(query, cqlmapper_query.BatchQuery):
@@ -151,4 +159,5 @@ class Connection(object):
         result = self.session.execute(statement, params, timeout=timeout)
         if verify_applied:
             check_applied(result)
+        return result
 
