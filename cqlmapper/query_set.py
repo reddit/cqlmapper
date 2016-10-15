@@ -22,7 +22,11 @@ from cqlmapper import (
     ValidationError,
     TIMEOUT_NOT_SET,
 )
-from cqlmapper.query import QueryException, BatchQuery
+from cqlmapper.query import (
+    QueryException,
+    BatchQuery,
+    IfExistsWithCounterColumn,
+)
 from cqlmapper.functions import Token, BaseQueryFunction
 from cqlmapper.operators import (
     InOperator,
