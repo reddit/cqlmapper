@@ -23,33 +23,36 @@ from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
 from cqlmapper.query import BatchQuery
 
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
+
 
 class TestConsistencyModel(Model):
 
-    id      = columns.UUID(primary_key=True, default=lambda:uuid4())
-    count   = columns.Integer()
-    text    = columns.Text(required=False)
+    id = columns.UUID(primary_key=True, default=uuid4)
+    count = columns.Integer()
+    text = columns.Text(required=False)
+
 
 class BaseConsistencyTest(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
         super(BaseConsistencyTest, cls).setUpClass()
-        sync_table(TestConsistencyModel)
+        sync_table(cls.connection(), TestConsistencyModel)
 
     @classmethod
     def tearDownClass(cls):
         super(BaseConsistencyTest, cls).tearDownClass()
-        drop_table(TestConsistencyModel)
+        drop_table(cls.connection(), TestConsistencyModel)
 
 
 class TestConsistency(BaseConsistencyTest):
+
     def test_create_uses_consistency(self):
 
         qs = TestConsistencyModel.consistency(CL.ALL)
-        with mock.patch.object(self.session, 'execute') as m:
-            qs.create(text="i am not fault tolerant this way")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            qs.create(self.conn, text="i am not fault tolerant this way")
 
         args = m.call_args
         self.assertEqual(CL.ALL, args[0][0].consistency_level)

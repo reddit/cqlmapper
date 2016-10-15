@@ -137,7 +137,6 @@ class BatchQuery(object):
 
     See :doc:`/cqlengine/batches` for more details.
     """
-    warn_multiple_exec = True
 
     _consistency = None
 

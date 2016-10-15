@@ -36,7 +36,6 @@ from cassandra import (
     AlreadyExists
 )
 from cassandra.cluster import Cluster
-from cassandra.protocol import ConfigurationException
 from cassandra.policies import RoundRobinPolicy
 
 from cqlmapper import connection
@@ -46,13 +45,6 @@ from cqlmapper.management import (
 )
 import cassandra
 
-try:
-    from ccmlib.cluster import Cluster as CCMCluster
-    from ccmlib.dse_cluster import DseCluster
-    from ccmlib.cluster_factory import ClusterFactory as CCMClusterFactory
-    from ccmlib import common
-except ImportError as e:
-    CCMClusterFactory = None
 
 _connections = {}
 
@@ -64,10 +56,6 @@ CCM_CLUSTER = None
 CCM_KWARGS = {}
 CCM_KWARGS['version'] = CASSANDRA_VERSION
 PROTOCOL_VERSION = 4
-
-path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'ccm')
-if not os.path.exists(path):
-    os.mkdir(path)
 
 cass_version = None
 cql_version = None

@@ -28,8 +28,12 @@ class BaseCassEngTestCase(unittest.TestCase):
 
     session = None
 
+    @classmethod
+    def connection(cls):
+        return get_connection()
+
     def setUp(self):
-        self.conn = get_connection()
+        self.conn = self.connection()
 
     def assertHasAttr(self, obj, attr):
         self.assertTrue(

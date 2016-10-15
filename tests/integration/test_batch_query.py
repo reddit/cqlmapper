@@ -17,10 +17,7 @@ from cqlmapper import columns
 from cqlmapper.management import drop_table, sync_table
 from cqlmapper.models import Model
 from cqlmapper.query import BatchQuery
-from tests.integration import get_connection
-from tests.integration.base import BaseCassEngTestCase, get_connection, main
-
-from mock import patch
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestMultiKeyModel(Model):
@@ -35,14 +32,14 @@ class BatchQueryTests(BaseCassEngTestCase):
     @classmethod
     def setUpClass(cls):
         super(BatchQueryTests, cls).setUpClass()
-        conn = get_connection()
+        conn = cls.connection()
         drop_table(conn, TestMultiKeyModel)
         sync_table(conn, TestMultiKeyModel)
 
     @classmethod
     def tearDownClass(cls):
         super(BatchQueryTests, cls).tearDownClass()
-        conn = get_connection()
+        conn = cls.connection()
         drop_table(conn, TestMultiKeyModel)
 
     def setUp(self):
@@ -263,30 +260,3 @@ class BatchQueryCallbacksTests(BaseCassEngTestCase):
         self.assertEqual(len(w), 1)
         self.assertRegexpMatches(str(w[0].message), r"^Batch.*multiple.*")
 
-    def test_disable_multiple_callback_warning(self):
-        """
-        Tests that multiple executions of a batch statement
-        don't log a warning when warn_multiple_exec flag is set, and
-        that we don't encounter an attribute error.
-        @since 3.1
-        @jira_ticket PYTHON-445
-        @expected_result warning message is logged
-
-        @test_category object_mapper
-        """
-        call_history = []
-
-        def my_callback(*args, **kwargs):
-            call_history.append(args)
-
-        with patch('cqlmapper.query.BatchQuery.warn_multiple_exec', False):
-            with warnings.catch_warnings(record=True) as w:
-                batch = BatchQuery()
-                batch.add_callback(my_callback)
-                self.conn.execute_query(batch)
-                self.conn.execute_query(batch)
-            self.assertFalse(w)
-
-
-if __name__ == "__main__":
-    main()
