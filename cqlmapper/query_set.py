@@ -26,6 +26,7 @@ from cqlmapper.query import (
     QueryException,
     BatchQuery,
     IfExistsWithCounterColumn,
+    IfNotExistsWithCounterColumn,
 )
 from cqlmapper.functions import Token, BaseQueryFunction
 from cqlmapper.operators import (
@@ -558,6 +559,9 @@ class ModelQuerySet(object):
 
         self._execute_query(conn)
         return self.iter(conn)
+
+    def find_all(self, conn, *args, **kwargs):
+        return [x for x in self.find(conn, *args, **kwargs)]
 
     def get(self, conn, *args, **kwargs):
         """

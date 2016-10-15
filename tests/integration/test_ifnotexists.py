@@ -19,25 +19,30 @@ except ImportError:
 import mock
 from uuid import uuid4
 
-from cqlmapper import columns
+from cqlmapper import columns, LWTException
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
-from cqlmapper.query import BatchQuery, LWTException, IfNotExistsWithCounterColumn
+from cqlmapper.query import (
+    BatchQuery,
+    IfNotExistsWithCounterColumn,
+)
+from cqlmapper.query_set import ModelQuerySet
 
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
 from tests.integration import PROTOCOL_VERSION
+
 
 class TestIfNotExistsModel(Model):
 
-    id      = columns.UUID(primary_key=True, default=lambda:uuid4())
-    count   = columns.Integer()
-    text    = columns.Text(required=False)
+    id = columns.UUID(primary_key=True, default=uuid4)
+    count = columns.Integer()
+    text = columns.Text(required=False)
 
 
 class TestIfNotExistsWithCounterModel(Model):
 
-    id      = columns.UUID(primary_key=True, default=lambda:uuid4())
-    likes   = columns.Counter()
+    id = columns.UUID(primary_key=True, default=uuid4)
+    likes = columns.Counter()
 
 
 class BaseIfNotExistsTest(BaseCassEngTestCase):
@@ -47,16 +52,16 @@ class BaseIfNotExistsTest(BaseCassEngTestCase):
         super(BaseIfNotExistsTest, cls).setUpClass()
         """
         when receiving an insert statement with 'if not exist', cassandra would
-        perform a read with QUORUM level. Unittest would be failed if replica_factor
-        is 3 and one node only. Therefore I have create a new keyspace with
-        replica_factor:1.
+        perform a read with QUORUM level. Unittest would be failed if
+        replica_factor is 3 and one node only. Therefore I have create a new
+        keyspace with replica_factor:1.
         """
-        sync_table(TestIfNotExistsModel)
+        sync_table(cls.connection(), TestIfNotExistsModel)
 
     @classmethod
     def tearDownClass(cls):
         super(BaseIfNotExistsTest, cls).tearDownClass()
-        drop_table(TestIfNotExistsModel)
+        drop_table(cls.connection(), TestIfNotExistsModel)
 
 
 class BaseIfNotExistsWithCounterTest(BaseCassEngTestCase):
@@ -64,29 +69,45 @@ class BaseIfNotExistsWithCounterTest(BaseCassEngTestCase):
     @classmethod
     def setUpClass(cls):
         super(BaseIfNotExistsWithCounterTest, cls).setUpClass()
-        sync_table(TestIfNotExistsWithCounterModel)
+        sync_table(cls.connection(), TestIfNotExistsWithCounterModel)
 
     @classmethod
     def tearDownClass(cls):
         super(BaseIfNotExistsWithCounterTest, cls).tearDownClass()
-        drop_table(TestIfNotExistsWithCounterModel)
+        drop_table(cls.connection(), TestIfNotExistsWithCounterModel)
 
 
 class IfNotExistsInsertTests(BaseIfNotExistsTest):
 
-    @unittest.skipUnless(PROTOCOL_VERSION >= 2, "only runs against the cql3 protocol v2.0")
+    @unittest.skipUnless(
+        PROTOCOL_VERSION >= 2,
+        "only runs against the cql3 protocol v2.0"
+    )
     def test_insert_if_not_exists(self):
         """ tests that insertion with if_not_exists work as expected """
 
         id = uuid4()
 
-        TestIfNotExistsModel.create(id=id, count=8, text='123456789')
+        TestIfNotExistsModel.create(
+            self.conn,
+            id=id,
+            count=8,
+            text='123456789',
+        )
 
         with self.assertRaises(LWTException) as assertion:
-            TestIfNotExistsModel.if_not_exists().create(id=id, count=9, text='111111111111')
+            TestIfNotExistsModel.if_not_exists().create(
+                self.conn,
+                id=id,
+                count=9,
+                text='111111111111',
+            )
 
         with self.assertRaises(LWTException) as assertion:
-            TestIfNotExistsModel.objects(count=9, text='111111111111').if_not_exists().create(id=id)
+            TestIfNotExistsModel.objects(
+                count=9,
+                text='111111111111',
+            ).if_not_exists().create(self.conn, id=id)
 
         self.assertEqual(assertion.exception.existing, {
             'count': 8,
@@ -96,25 +117,39 @@ class IfNotExistsInsertTests(BaseIfNotExistsTest):
         })
 
         q = TestIfNotExistsModel.objects(id=id)
-        self.assertEqual(len(q), 1)
+        self.assertEqual(len(q.find_all(self.conn)), 1)
 
-        tm = q.first()
+        tm = q.first(self.conn)
         self.assertEqual(tm.count, 8)
         self.assertEqual(tm.text, '123456789')
 
-    @unittest.skipUnless(PROTOCOL_VERSION >= 2, "only runs against the cql3 protocol v2.0")
+    @unittest.skipUnless(
+        PROTOCOL_VERSION >= 2,
+        "only runs against the cql3 protocol v2.0"
+    )
     def test_batch_insert_if_not_exists(self):
         """ tests that batch insertion with if_not_exists work as expected """
 
         id = uuid4()
 
-        with BatchQuery() as b:
-            TestIfNotExistsModel.batch(b).if_not_exists().create(id=id, count=8, text='123456789')
+        b = BatchQuery()
+        TestIfNotExistsModel.batch(b).if_not_exists().create(
+            self.conn,
+            id=id,
+            count=8,
+            text='123456789',
+        )
+        self.conn.execute_query(b)
 
         b = BatchQuery()
-        TestIfNotExistsModel.batch(b).if_not_exists().create(id=id, count=9, text='111111111111')
+        TestIfNotExistsModel.batch(b).if_not_exists().create(
+            self.conn,
+            id=id,
+            count=9,
+            text='111111111111',
+        )
         with self.assertRaises(LWTException) as assertion:
-            b.execute()
+            self.conn.execute_query(b)
 
         self.assertEqual(assertion.exception.existing, {
             'count': 8,
@@ -124,9 +159,9 @@ class IfNotExistsInsertTests(BaseIfNotExistsTest):
         })
 
         q = TestIfNotExistsModel.objects(id=id)
-        self.assertEqual(len(q), 1)
+        self.assertEqual(len(q.find_all(self.conn)), 1)
 
-        tm = q.first()
+        tm = q.first(self.conn)
         self.assertEqual(tm.count, 8)
         self.assertEqual(tm.text, '123456789')
 
@@ -136,8 +171,8 @@ class IfNotExistsModelTest(BaseIfNotExistsTest):
     def test_if_not_exists_included_on_create(self):
         """ tests that if_not_exists on models works as expected """
 
-        with mock.patch.object(self.session, 'execute') as m:
-            TestIfNotExistsModel.if_not_exists().create(count=8)
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            TestIfNotExistsModel.if_not_exists().create(self.conn, count=8)
 
         query = m.call_args[0][0].query_string
         self.assertIn("IF NOT EXISTS", query)
@@ -145,9 +180,9 @@ class IfNotExistsModelTest(BaseIfNotExistsTest):
     def test_if_not_exists_included_on_save(self):
         """ tests if we correctly put 'IF NOT EXISTS' for insert statement """
 
-        with mock.patch.object(self.session, 'execute') as m:
+        with mock.patch.object(self.conn.session, 'execute') as m:
             tm = TestIfNotExistsModel(count=8)
-            tm.if_not_exists().save()
+            tm.if_not_exists().save(self.conn)
 
         query = m.call_args[0][0].query_string
         self.assertIn("IF NOT EXISTS", query)
@@ -155,13 +190,17 @@ class IfNotExistsModelTest(BaseIfNotExistsTest):
     def test_queryset_is_returned_on_class(self):
         """ ensure we get a queryset description back """
         qs = TestIfNotExistsModel.if_not_exists()
-        self.assertTrue(isinstance(qs, TestIfNotExistsModel.__queryset__), type(qs))
+        self.assertTrue(isinstance(qs, ModelQuerySet), type(qs))
 
     def test_batch_if_not_exists(self):
         """ ensure 'IF NOT EXISTS' exists in statement when in batch """
-        with mock.patch.object(self.session, 'execute') as m:
-            with BatchQuery() as b:
-                TestIfNotExistsModel.batch(b).if_not_exists().create(count=8)
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            b = BatchQuery()
+            TestIfNotExistsModel.batch(b).if_not_exists().create(
+                self.conn,
+                count=8,
+            )
+            self.conn.execute_query(b)
 
         self.assertIn("IF NOT EXISTS", m.call_args[0][0].query_string)
 
@@ -173,7 +212,7 @@ class IfNotExistsInstanceTest(BaseIfNotExistsTest):
         ensures that we properly handle the instance.if_not_exists().save()
         scenario
         """
-        o = TestIfNotExistsModel.create(text="whatever")
+        o = TestIfNotExistsModel.create(self.conn, text="whatever")
         o.text = "new stuff"
         o = o.if_not_exists()
         self.assertEqual(True, o._if_not_exists)
@@ -182,12 +221,12 @@ class IfNotExistsInstanceTest(BaseIfNotExistsTest):
         """
         make sure we don't put 'IF NOT EXIST' in update statements
         """
-        o = TestIfNotExistsModel.create(text="whatever")
+        o = TestIfNotExistsModel.create(self.conn, text="whatever")
         o.text = "new stuff"
         o = o.if_not_exists()
 
-        with mock.patch.object(self.session, 'execute') as m:
-            o.save()
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            o.save(self.conn)
 
         query = m.call_args[0][0].query_string
         self.assertNotIn("IF NOT EXIST", query)

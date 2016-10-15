@@ -182,7 +182,7 @@ class IfExistsUpdateTests(BaseIfExistsTest):
         )
 
         q = TestIfExistsModel.objects(id=id)
-        self.assertEqual(len([x for x in q.find(self.conn)]), 1)
+        self.assertEqual(len(q.find_all(self.conn)), 1)
 
         tm = q.first(self.conn)
         self.assertEqual(tm.count, 8)
@@ -248,7 +248,7 @@ class IfExistsUpdateTests(BaseIfExistsTest):
         )
         m.if_exists().delete(self.conn)
         q = TestIfExistsModel.objects(id=id)
-        self.assertEqual(len([x for x in q.find(self.conn)]), 0)
+        self.assertEqual(len(q.find_all(self.conn)), 0)
 
         m = TestIfExistsModel(id=uuid4(), count=44)  # do not exists
         with self.assertRaises(LWTException) as assertion:
@@ -297,7 +297,7 @@ class IfExistsUpdateTests(BaseIfExistsTest):
         self.conn.execute_query(b)
 
         q = TestIfExistsModel.objects(id=id)
-        self.assertEqual(len([x for x in q.find(self.conn)]), 0)
+        self.assertEqual(len(q.find_all(self.conn)), 0)
 
         with self.assertRaises(LWTException) as assertion:
             b = BatchQuery()
@@ -344,7 +344,7 @@ class IfExistsUpdateTests(BaseIfExistsTest):
             False,
         )
         q = TestIfExistsModel2.objects(id=3, count=8)
-        self.assertEqual(len([x for x in q.find(self.conn)]), 1)
+        self.assertEqual(len(q.find_all(self.conn)), 1)
 
 
 class IfExistsQueryTest(BaseIfExistsTest):
