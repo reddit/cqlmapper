@@ -14,6 +14,7 @@ class cqlmapper {
     'python-nose',
     'python-pudb',
     'python-pip',
+    'python-sure',
     'ipython',
   ]
 
