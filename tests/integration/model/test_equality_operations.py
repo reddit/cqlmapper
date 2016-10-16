@@ -13,35 +13,37 @@
 # limitations under the License.
 
 from uuid import uuid4
-from tests.integration.cqlengine.base import BaseCassEngTestCase
 
-from cqlmapper.management import sync_table
-from cqlmapper.management import drop_table
+from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
 from cqlmapper import columns
 
+from tests.integration.base import BaseCassEngTestCase
+
+
 class TestModel(Model):
 
-    id      = columns.UUID(primary_key=True, default=lambda:uuid4())
-    count   = columns.Integer()
-    text    = columns.Text(required=False)
+    id = columns.UUID(primary_key=True, default=uuid4)
+    count = columns.Integer()
+    text = columns.Text(required=False)
+
 
 class TestEqualityOperators(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
         super(TestEqualityOperators, cls).setUpClass()
-        sync_table(TestModel)
+        sync_table(cls.connection(), TestModel)
 
     def setUp(self):
         super(TestEqualityOperators, self).setUp()
-        self.t0 = TestModel.create(count=5, text='words')
-        self.t1 = TestModel.create(count=5, text='words')
+        self.t0 = TestModel.create(self.conn, count=5, text='words')
+        self.t1 = TestModel.create(self.conn, count=5, text='words')
 
     @classmethod
     def tearDownClass(cls):
         super(TestEqualityOperators, cls).tearDownClass()
-        drop_table(TestModel)
+        drop_table(cls.connection(), TestModel)
 
     def test_an_instance_evaluates_as_equal_to_itself(self):
         """
@@ -51,14 +53,14 @@ class TestEqualityOperators(BaseCassEngTestCase):
     def test_two_instances_referencing_the_same_rows_and_different_values_evaluate_not_equal(self):
         """
         """
-        t0 = TestModel.get(id=self.t0.id)
+        t0 = TestModel.get(self.conn, id=self.t0.id)
         t0.text = 'bleh'
         assert t0 != self.t0
 
     def test_two_instances_referencing_the_same_rows_and_values_evaluate_equal(self):
         """
         """
-        t0 = TestModel.get(id=self.t0.id)
+        t0 = TestModel.get(self.conn, id=self.t0.id)
         assert t0 == self.t0
 
     def test_two_instances_referencing_different_rows_evaluate_to_not_equal(self):
