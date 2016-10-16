@@ -18,7 +18,7 @@ except ImportError:
 
 import sys
 
-from tests.integration import get_connection
+from tests.integration import get_connection, DEFAULT_KEYSPACE
 
 
 main = unittest.main
@@ -29,8 +29,8 @@ class BaseCassEngTestCase(unittest.TestCase):
     session = None
 
     @classmethod
-    def connection(cls):
-        return get_connection()
+    def connection(cls, keyspace=DEFAULT_KEYSPACE):
+        return get_connection(keyspace_name=keyspace)
 
     def setUp(self):
         self.conn = self.connection()

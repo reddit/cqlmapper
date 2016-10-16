@@ -14,6 +14,7 @@
 
 import logging
 import os
+import platform
 import sys
 import time
 import traceback
@@ -56,6 +57,11 @@ PROTOCOL_VERSION = 4
 cass_version = None
 cql_version = None
 log = logging.getLogger(__name__)
+
+pypy = unittest.skipUnless(
+    platform.python_implementation() == "PyPy",
+    "Test is skipped unless it's on PyPy",
+)
 
 
 def get_server_versions():
