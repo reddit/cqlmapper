@@ -643,7 +643,7 @@ class BaseModel(object):
             person.save()
         """
 
-        if self._can_update():
+        if self._can_update() or self._has_counter:
             return self.update(conn)
 
         self.validate()

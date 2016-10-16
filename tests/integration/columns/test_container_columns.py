@@ -60,54 +60,68 @@ class TestSetColumn(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        drop_table(TestSetModel)
-        sync_table(TestSetModel)
+        super(TestSetColumn, cls).setUpClass()
+        conn = cls.connection()
+        drop_table(conn, TestSetModel)
+        sync_table(conn, TestSetModel)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(TestSetModel)
+        super(TestSetColumn, cls).tearDownClass()
+        drop_table(cls.connection(), TestSetModel)
 
     def test_add_none_fails(self):
-        self.assertRaises(ValidationError, TestSetModel.create, **{'int_set': set([None])})
+        self.assertRaises(
+            ValidationError,
+            TestSetModel.create,
+            self.conn,
+            int_set=set([None])
+        )
 
     def test_empty_set_initial(self):
         """
         tests that sets are set() by default, should never be none
         :return:
         """
-        m = TestSetModel.create()
+        m = TestSetModel.create(self.conn)
         m.int_set.add(5)
-        m.save()
+        m.save(self.conn)
 
     def test_deleting_last_item_should_succeed(self):
-        m = TestSetModel.create()
+        m = TestSetModel.create(self.conn)
         m.int_set.add(5)
-        m.save()
+        m.save(self.conn)
         m.int_set.remove(5)
-        m.save()
+        m.save(self.conn)
 
-        m = TestSetModel.get(partition=m.partition)
+        m = TestSetModel.get(self.conn, partition=m.partition)
         self.assertTrue(5 not in m.int_set)
 
     def test_blind_deleting_last_item_should_succeed(self):
-        m = TestSetModel.create()
+        m = TestSetModel.create(self.conn)
         m.int_set.add(5)
-        m.save()
+        m.save(self.conn)
 
-        TestSetModel.objects(partition=m.partition).update(int_set=set())
+        TestSetModel.objects(
+            partition=m.partition
+        ).update(self.conn, int_set=set())
 
-        m = TestSetModel.get(partition=m.partition)
+        m = TestSetModel.get(self.conn, partition=m.partition)
         self.assertTrue(5 not in m.int_set)
 
     def test_empty_set_retrieval(self):
-        m = TestSetModel.create()
-        m2 = TestSetModel.get(partition=m.partition)
+        m = TestSetModel.create(self.conn)
+        m2 = TestSetModel.get(self.conn, partition=m.partition)
         m2.int_set.add(3)
 
     def test_io_success(self):
         """ Tests that a basic usage works as expected """
-        m1 = TestSetModel.create(int_set=set((1, 2)), text_set=set(('kai', 'andreas')))
-        m2 = TestSetModel.get(partition=m1.partition)
+        m1 = TestSetModel.create(
+            self.conn,
+            int_set=set((1, 2)),
+            text_set=set(('kai', 'andreas')),
+        )
+        m2 = TestSetModel.get(self.conn, partition=m1.partition)
 
         self.assertIsInstance(m2.int_set, set)
         self.assertIsInstance(m2.text_set, set)
@@ -122,7 +136,13 @@ class TestSetColumn(BaseCassEngTestCase):
         """
         Tests that attempting to use the wrong types will raise an exception
         """
-        self.assertRaises(ValidationError, TestSetModel.create, **{'int_set': set(('string', True)), 'text_set': set((1, 3.0))})
+        self.assertRaises(
+            ValidationError,
+            TestSetModel.create,
+            self.conn,
+            int_set=set(('string', True)),
+            text_set=set((1, 3.0)),
+        )
 
     def test_element_count_validation(self):
         """
@@ -130,25 +150,39 @@ class TestSetColumn(BaseCassEngTestCase):
         """
         while True:
             try:
-                TestSetModel.create(text_set=set(str(uuid4()) for i in range(65535)))
+                TestSetModel.create(
+                    self.conn,
+                    text_set=set(str(uuid4()) for i in range(65535)),
+                )
                 break
             except WriteTimeout:
                 ex_type, ex, tb = sys.exc_info()
-                log.warn("{0}: {1} Backtrace: {2}".format(ex_type.__name__, ex, traceback.extract_tb(tb)))
+                log.warn(
+                    "{0}: {1} Backtrace: {2}".format(
+                        ex_type.__name__,
+                        ex,
+                        traceback.extract_tb(tb),
+                    )
+                )
                 del tb
-        self.assertRaises(ValidationError, TestSetModel.create, **{'text_set': set(str(uuid4()) for i in range(65536))})
+        self.assertRaises(
+            ValidationError,
+            TestSetModel.create,
+            self.conn,
+            text_set=set(str(uuid4()) for i in range(65536)),
+        )
 
     def test_partial_updates(self):
         """ Tests that partial udpates work as expected """
-        m1 = TestSetModel.create(int_set=set((1, 2, 3, 4)))
+        m1 = TestSetModel.create(self.conn, int_set=set((1, 2, 3, 4)))
 
         m1.int_set.add(5)
         m1.int_set.remove(1)
         self.assertEqual(m1.int_set, set((2, 3, 4, 5)))
 
-        m1.save()
+        m1.save(self.conn)
 
-        m2 = TestSetModel.get(partition=m1.partition)
+        m2 = TestSetModel.get(self.conn, partition=m1.partition)
         self.assertEqual(m2.int_set, set((2, 3, 4, 5)))
 
     def test_instantiation_with_column_class(self):
@@ -176,14 +210,15 @@ class TestSetColumn(BaseCassEngTestCase):
         self.assertEqual(py_val, val)
 
     def test_default_empty_container_saving(self):
-        """ tests that the default empty container is not saved if it hasn't been updated """
+        """ tests that the default empty container is not saved if it
+        hasn't been updated """
         pkey = uuid4()
         # create a row with set data
-        TestSetModel.create(partition=pkey, int_set=set((3, 4)))
+        TestSetModel.create(self.conn, partition=pkey, int_set=set((3, 4)))
         # create another with no set data
-        TestSetModel.create(partition=pkey)
+        TestSetModel.create(self.conn, partition=pkey)
 
-        m = TestSetModel.get(partition=pkey)
+        m = TestSetModel.get(self.conn, partition=pkey)
         self.assertEqual(m.int_set, set((3, 4)))
 
 
@@ -198,26 +233,33 @@ class TestListColumn(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        drop_table(TestListModel)
-        sync_table(TestListModel)
+        super(TestListColumn, cls).setUpClass()
+        conn = cls.connection()
+        drop_table(conn, TestListModel)
+        sync_table(conn, TestListModel)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(TestListModel)
+        super(TestListColumn, cls).tearDownClass()
+        drop_table(cls.connection(), TestListModel)
 
     def test_initial(self):
-        tmp = TestListModel.create()
+        tmp = TestListModel.create(self.conn)
         tmp.int_list.append(1)
 
     def test_initial_retrieve(self):
-        tmp = TestListModel.create()
-        tmp2 = TestListModel.get(partition=tmp.partition)
+        tmp = TestListModel.create(self.conn)
+        tmp2 = TestListModel.get(self.conn, partition=tmp.partition)
         tmp2.int_list.append(1)
 
     def test_io_success(self):
         """ Tests that a basic usage works as expected """
-        m1 = TestListModel.create(int_list=[1, 2], text_list=['kai', 'andreas'])
-        m2 = TestListModel.get(partition=m1.partition)
+        m1 = TestListModel.create(
+            self.conn,
+            int_list=[1, 2],
+            text_list=['kai', 'andreas']
+        )
+        m2 = TestListModel.get(self.conn, partition=m1.partition)
 
         self.assertIsInstance(m2.int_list, list)
         self.assertIsInstance(m2.text_list, list)
@@ -235,7 +277,13 @@ class TestListColumn(BaseCassEngTestCase):
         """
         Tests that attempting to use the wrong types will raise an exception
         """
-        self.assertRaises(ValidationError, TestListModel.create, **{'int_list': ['string', True], 'text_list': [1, 3.0]})
+        self.assertRaises(
+            ValidationError,
+            TestListModel.create,
+            self.conn,
+            int_list=['string', True],
+            text_list=[1, 3.0],
+        )
 
     def test_element_count_validation(self):
         """
@@ -243,30 +291,44 @@ class TestListColumn(BaseCassEngTestCase):
         """
         while True:
             try:
-                TestListModel.create(text_list=[str(uuid4()) for i in range(65535)])
+                TestListModel.create(
+                    self.conn,
+                    text_list=[str(uuid4()) for i in range(65535)]
+                )
                 break
             except WriteTimeout:
                 ex_type, ex, tb = sys.exc_info()
-                log.warn("{0}: {1} Backtrace: {2}".format(ex_type.__name__, ex, traceback.extract_tb(tb)))
+                log.warn(
+                    "{0}: {1} Backtrace: {2}".format(
+                        ex_type.__name__,
+                        ex,
+                        traceback.extract_tb(tb)
+                    )
+                )
                 del tb
-        self.assertRaises(ValidationError, TestListModel.create, **{'text_list': [str(uuid4()) for _ in range(65536)]})
+        self.assertRaises(
+            ValidationError,
+            TestListModel.create,
+            self.conn,
+            text_list=[str(uuid4()) for _ in range(65536)],
+        )
 
     def test_partial_updates(self):
         """ Tests that partial udpates work as expected """
         full = list(range(10))
         initial = full[3:7]
 
-        m1 = TestListModel.create(int_list=initial)
+        m1 = TestListModel.create(self.conn, int_list=initial)
 
         m1.int_list = full
-        m1.save()
+        m1.save(self.conn)
 
         if is_prepend_reversed():
             expected = full[2::-1] + full[3:]
         else:
             expected = full
 
-        m2 = TestListModel.get(partition=m1.partition)
+        m2 = TestListModel.get(self.conn, partition=m1.partition)
         self.assertEqual(list(m2.int_list), expected)
 
     def test_instantiation_with_column_class(self):
@@ -297,47 +359,55 @@ class TestListColumn(BaseCassEngTestCase):
         """ tests that the default empty container is not saved if it hasn't been updated """
         pkey = uuid4()
         # create a row with list data
-        TestListModel.create(partition=pkey, int_list=[1, 2, 3, 4])
+        TestListModel.create(self.conn, partition=pkey, int_list=[1, 2, 3, 4])
         # create another with no list data
-        TestListModel.create(partition=pkey)
+        TestListModel.create(self.conn, partition=pkey)
 
-        m = TestListModel.get(partition=pkey)
+        m = TestListModel.get(self.conn, partition=pkey)
         self.assertEqual(m.int_list, [1, 2, 3, 4])
 
     def test_remove_entry_works(self):
         pkey = uuid4()
-        tmp = TestListModel.create(partition=pkey, int_list=[1, 2])
+        tmp = TestListModel.create(self.conn, partition=pkey, int_list=[1, 2])
         tmp.int_list.pop()
-        tmp.update()
-        tmp = TestListModel.get(partition=pkey)
+        tmp.update(self.conn)
+        tmp = TestListModel.get(self.conn, partition=pkey)
         self.assertEqual(tmp.int_list, [1])
 
     def test_update_from_non_empty_to_empty(self):
         pkey = uuid4()
-        tmp = TestListModel.create(partition=pkey, int_list=[1, 2])
+        tmp = TestListModel.create(self.conn, partition=pkey, int_list=[1, 2])
         tmp.int_list = []
-        tmp.update()
+        tmp.update(self.conn)
 
-        tmp = TestListModel.get(partition=pkey)
+        tmp = TestListModel.get(self.conn, partition=pkey)
         self.assertEqual(tmp.int_list, [])
 
     def test_insert_none(self):
         pkey = uuid4()
-        self.assertRaises(ValidationError, TestListModel.create, **{'partition': pkey, 'int_list': [None]})
+        self.assertRaises(
+            ValidationError,
+            TestListModel.create,
+            self.conn,
+            partition=pkey,
+            int_list=[None],
+        )
 
     def test_blind_list_updates_from_none(self):
         """ Tests that updates from None work as expected """
-        m = TestListModel.create(int_list=None)
+        m = TestListModel.create(self.conn, int_list=None)
         expected = [1, 2]
         m.int_list = expected
-        m.save()
+        m.save(self.conn)
 
-        m2 = TestListModel.get(partition=m.partition)
+        m2 = TestListModel.get(self.conn, partition=m.partition)
         self.assertEqual(m2.int_list, expected)
 
-        TestListModel.objects(partition=m.partition).update(int_list=[])
+        TestListModel.objects(
+            partition=m.partition
+        ).update(self.conn, int_list=[])
 
-        m3 = TestListModel.get(partition=m.partition)
+        m3 = TestListModel.get(self.conn, partition=m.partition)
         self.assertEqual(m3.int_list, [])
 
 
@@ -351,33 +421,41 @@ class TestMapColumn(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        drop_table(TestMapModel)
-        sync_table(TestMapModel)
+        super(TestMapColumn, cls).setUpClass()
+        conn = cls.connection()
+        drop_table(conn, TestMapModel)
+        sync_table(conn, TestMapModel)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(TestMapModel)
+        super(TestMapColumn, cls).tearDownClass()
+        drop_table(cls.connection(), TestMapModel)
 
     def test_empty_default(self):
-        tmp = TestMapModel.create()
+        tmp = TestMapModel.create(self.conn)
         tmp.int_map['blah'] = 1
 
     def test_add_none_as_map_key(self):
-        self.assertRaises(ValidationError, TestMapModel.create, **{'int_map': {None: uuid4()}})
+        self.assertRaises(
+            ValidationError,
+            TestMapModel.create,
+            self.conn,
+            int_map={None: uuid4()},
+        )
 
     def test_empty_retrieve(self):
-        tmp = TestMapModel.create()
-        tmp2 = TestMapModel.get(partition=tmp.partition)
+        tmp = TestMapModel.create(self.conn)
+        tmp2 = TestMapModel.get(self.conn, partition=tmp.partition)
         tmp2.int_map['blah'] = 1
 
     def test_remove_last_entry_works(self):
-        tmp = TestMapModel.create()
+        tmp = TestMapModel.create(self.conn)
         tmp.text_map["blah"] = datetime.now()
-        tmp.save()
+        tmp.save(self.conn)
         del tmp.text_map["blah"]
-        tmp.save()
+        tmp.save(self.conn)
 
-        tmp = TestMapModel.get(partition=tmp.partition)
+        tmp = TestMapModel.get(self.conn, partition=tmp.partition)
         self.assertTrue("blah" not in tmp.int_map)
 
     def test_io_success(self):
@@ -386,9 +464,12 @@ class TestMapColumn(BaseCassEngTestCase):
         k2 = uuid4()
         now = datetime.now()
         then = now + timedelta(days=1)
-        m1 = TestMapModel.create(int_map={1: k1, 2: k2},
-                                 text_map={'now': now, 'then': then})
-        m2 = TestMapModel.get(partition=m1.partition)
+        m1 = TestMapModel.create(
+            self.conn,
+            int_map={1: k1, 2: k2},
+            text_map={'now': now, 'then': then},
+        )
+        m2 = TestMapModel.get(self.conn, partition=m1.partition)
 
         self.assertTrue(isinstance(m2.int_map, dict))
         self.assertTrue(isinstance(m2.text_map, dict))
@@ -398,14 +479,24 @@ class TestMapColumn(BaseCassEngTestCase):
         self.assertEqual(m2.int_map[1], k1)
         self.assertEqual(m2.int_map[2], k2)
 
-        self.assertAlmostEqual(get_total_seconds(now - m2.text_map['now']), 0, 2)
-        self.assertAlmostEqual(get_total_seconds(then - m2.text_map['then']), 0, 2)
+        self.assertAlmostEqual(
+            get_total_seconds(now - m2.text_map['now']), 0, 2
+        )
+        self.assertAlmostEqual(
+            get_total_seconds(then - m2.text_map['then']), 0, 2
+        )
 
     def test_type_validation(self):
         """
         Tests that attempting to use the wrong types will raise an exception
         """
-        self.assertRaises(ValidationError, TestMapModel.create, **{'int_map': {'key': 2, uuid4(): 'val'}, 'text_map': {2: 5}})
+        self.assertRaises(
+            ValidationError,
+            TestMapModel.create,
+            self.conn,
+            int_map={'key': 2, uuid4(): 'val'},
+            text_map={2: 5},
+        )
 
     def test_element_count_validation(self):
         """
@@ -413,13 +504,27 @@ class TestMapColumn(BaseCassEngTestCase):
         """
         while True:
             try:
-                TestMapModel.create(text_map=dict((str(uuid4()), i) for i in range(65535)))
+                TestMapModel.create(
+                    self.conn,
+                    text_map=dict((str(uuid4()), i) for i in range(65535))
+                )
                 break
             except WriteTimeout:
                 ex_type, ex, tb = sys.exc_info()
-                log.warn("{0}: {1} Backtrace: {2}".format(ex_type.__name__, ex, traceback.extract_tb(tb)))
+                log.warn(
+                    "{0}: {1} Backtrace: {2}".format(
+                        ex_type.__name__,
+                        ex,
+                        traceback.extract_tb(tb)
+                    )
+                )
                 del tb
-        self.assertRaises(ValidationError, TestMapModel.create, **{'text_map': dict((str(uuid4()), i) for i in range(65536))})
+        self.assertRaises(
+            ValidationError,
+            TestMapModel.create,
+            self.conn,
+            text_map=dict((str(uuid4()), i) for i in range(65536)),
+        )
 
     def test_partial_updates(self):
         """ Tests that partial udpates work as expected """
@@ -433,51 +538,53 @@ class TestMapColumn(BaseCassEngTestCase):
         initial = {'now': now, 'early': earlier}
         final = {'later': later, 'early': early}
 
-        m1 = TestMapModel.create(text_map=initial)
+        m1 = TestMapModel.create(self.conn, text_map=initial)
 
         m1.text_map = final
-        m1.save()
+        m1.save(self.conn)
 
-        m2 = TestMapModel.get(partition=m1.partition)
+        m2 = TestMapModel.get(self.conn, partition=m1.partition)
         self.assertEqual(m2.text_map, final)
 
     def test_updates_from_none(self):
         """ Tests that updates from None work as expected """
-        m = TestMapModel.create(int_map=None)
+        m = TestMapModel.create(self.conn, int_map=None)
         expected = {1: uuid4()}
         m.int_map = expected
-        m.save()
+        m.save(self.conn)
 
-        m2 = TestMapModel.get(partition=m.partition)
+        m2 = TestMapModel.get(self.conn, partition=m.partition)
         self.assertEqual(m2.int_map, expected)
 
         m2.int_map = None
-        m2.save()
-        m3 = TestMapModel.get(partition=m.partition)
+        m2.save(self.conn)
+        m3 = TestMapModel.get(self.conn, partition=m.partition)
         self.assertNotEqual(m3.int_map, expected)
 
     def test_blind_updates_from_none(self):
         """ Tests that updates from None work as expected """
-        m = TestMapModel.create(int_map=None)
+        m = TestMapModel.create(self.conn, int_map=None)
         expected = {1: uuid4()}
         m.int_map = expected
-        m.save()
+        m.save(self.conn)
 
-        m2 = TestMapModel.get(partition=m.partition)
+        m2 = TestMapModel.get(self.conn, partition=m.partition)
         self.assertEqual(m2.int_map, expected)
 
-        TestMapModel.objects(partition=m.partition).update(int_map={})
+        TestMapModel.objects(
+            partition=m.partition
+        ).update(self.conn, int_map={})
 
-        m3 = TestMapModel.get(partition=m.partition)
+        m3 = TestMapModel.get(self.conn, partition=m.partition)
         self.assertNotEqual(m3.int_map, expected)
 
     def test_updates_to_none(self):
         """ Tests that setting the field to None works as expected """
-        m = TestMapModel.create(int_map={1: uuid4()})
+        m = TestMapModel.create(self.conn, int_map={1: uuid4()})
         m.int_map = None
-        m.save()
+        m.save(self.conn)
 
-        m2 = TestMapModel.get(partition=m.partition)
+        m2 = TestMapModel.get(self.conn, partition=m.partition)
         self.assertEqual(m2.int_map, {})
 
     def test_instantiation_with_column_class(self):
@@ -511,11 +618,11 @@ class TestMapColumn(BaseCassEngTestCase):
         pkey = uuid4()
         tmap = {1: uuid4(), 2: uuid4()}
         # create a row with set data
-        TestMapModel.create(partition=pkey, int_map=tmap)
+        TestMapModel.create(self.conn, partition=pkey, int_map=tmap)
         # create another with no set data
-        TestMapModel.create(partition=pkey)
+        TestMapModel.create(self.conn, partition=pkey)
 
-        m = TestMapModel.get(partition=pkey)
+        m = TestMapModel.get(self.conn, partition=pkey)
         self.assertEqual(m.int_map, tmap)
 
 
@@ -529,36 +636,51 @@ class TestCamelMapColumn(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        drop_table(TestCamelMapModel)
-        sync_table(TestCamelMapModel)
+        super(TestCamelMapColumn, cls).setUpClass()
+        conn = cls.connection()
+        drop_table(conn, TestCamelMapModel)
+        sync_table(conn, TestCamelMapModel)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(TestCamelMapModel)
+        super(TestCamelMapColumn, cls).tearDownClass()
+        drop_table(cls.connection(), TestCamelMapModel)
 
     def test_camelcase_column(self):
-        TestCamelMapModel.create(camelMap={'blah': 1})
+        TestCamelMapModel.create(self.conn, camelMap={'blah': 1})
 
 
 class TestTupleModel(Model):
 
     partition = columns.UUID(primary_key=True, default=uuid4)
-    int_tuple = columns.Tuple(columns.Integer, columns.Integer, columns.Integer, required=False)
+    int_tuple = columns.Tuple(
+        columns.Integer,
+        columns.Integer,
+        columns.Integer,
+        required=False,
+    )
     text_tuple = columns.Tuple(columns.Text, columns.Text, required=False)
-    mixed_tuple = columns.Tuple(columns.Text, columns.Integer, columns.Text, required=False)
-
+    mixed_tuple = columns.Tuple(
+        columns.Text,
+        columns.Integer,
+        columns.Text,
+        required=False,
+    )
 
 
 class TestTupleColumn(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        drop_table(TestTupleModel)
-        sync_table(TestTupleModel)
+        super(TestTupleColumn, cls).setUpClass()
+        conn = cls.connection()
+        drop_table(conn, TestTupleModel)
+        sync_table(conn, TestTupleModel)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(TestTupleModel)
+        super(TestTupleColumn, cls).tearDownClass()
+        drop_table(cls.connection(), TestTupleModel)
 
     def test_initial(self):
         """
@@ -570,7 +692,7 @@ class TestTupleColumn(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        tmp = TestTupleModel.create()
+        tmp = TestTupleModel.create(self.conn)
         tmp.int_tuple = (1, 2, 3)
 
     def test_initial_retrieve(self):
@@ -585,8 +707,8 @@ class TestTupleColumn(BaseCassEngTestCase):
         @test_category object_mapper
         """
 
-        tmp = TestTupleModel.create()
-        tmp2 = tmp.get(partition=tmp.partition)
+        tmp = TestTupleModel.create(self.conn)
+        tmp2 = tmp.get(self.conn, partition=tmp.partition)
         tmp2.int_tuple = (1, 2, 3)
 
     def test_io_success(self):
@@ -600,8 +722,13 @@ class TestTupleColumn(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        m1 = TestTupleModel.create(int_tuple=(1, 2, 3, 5, 6), text_tuple=('kai', 'andreas'), mixed_tuple=('first', 2, 'Third'))
-        m2 = TestTupleModel.get(partition=m1.partition)
+        m1 = TestTupleModel.create(
+            self.conn,
+            int_tuple=(1, 2, 3, 5, 6),
+            text_tuple=('kai', 'andreas'),
+            mixed_tuple=('first', 2, 'Third'),
+        )
+        m2 = TestTupleModel.get(self.conn, partition=m1.partition)
 
         self.assertIsInstance(m2.int_tuple, tuple)
         self.assertIsInstance(m2.text_tuple, tuple)
@@ -621,9 +748,30 @@ class TestTupleColumn(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        self.assertRaises(ValidationError, TestTupleModel.create, **{'int_tuple': ('string', True), 'text_tuple': ('test', 'test'), 'mixed_tuple': ('one', 2, 'three')})
-        self.assertRaises(ValidationError, TestTupleModel.create, **{'int_tuple': ('string', 'string'), 'text_tuple': (1, 3.0), 'mixed_tuple': ('one', 2, 'three')})
-        self.assertRaises(ValidationError, TestTupleModel.create, **{'int_tuple': ('string', 'string'), 'text_tuple': ('test', 'test'), 'mixed_tuple': (1, "two", 3)})
+        self.assertRaises(
+            ValidationError,
+            TestTupleModel.create,
+            self.conn,
+            int_tuple=('string', True),
+            text_tuple=('test', 'test'),
+            mixed_tuple=('one', 2, 'three'),
+        )
+        self.assertRaises(
+            ValidationError,
+            TestTupleModel.create,
+            self.conn,
+            int_tuple=('string', 'string'),
+            text_tuple=(1, 3.0),
+            mixed_tuple=('one', 2, 'three'),
+        )
+        self.assertRaises(
+            ValidationError,
+            TestTupleModel.create,
+            self.conn,
+            int_tuple=('string', 'string'),
+            text_tuple=('test', 'test'),
+            mixed_tuple=(1, "two", 3),
+        )
 
     def test_instantiation_with_column_class(self):
         """
@@ -636,7 +784,12 @@ class TestTupleColumn(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        mixed_tuple = columns.Tuple(columns.Text, columns.Integer, columns.Text, required=False)
+        mixed_tuple = columns.Tuple(
+            columns.Text,
+            columns.Integer,
+            columns.Text,
+            required=False,
+        )
         self.assertIsInstance(mixed_tuple.types[0], columns.Text)
         self.assertIsInstance(mixed_tuple.types[1], columns.Integer)
         self.assertIsInstance(mixed_tuple.types[2], columns.Text)
@@ -644,7 +797,8 @@ class TestTupleColumn(BaseCassEngTestCase):
 
     def test_default_empty_container_saving(self):
         """
-        Tests that the default empty container is not saved if it hasn't been updated
+        Tests that the default empty container is not saved if it hasn't been
+        updated
 
         @since 3.1
         @jira_ticket PYTHON-306
@@ -654,11 +808,11 @@ class TestTupleColumn(BaseCassEngTestCase):
         """
         pkey = uuid4()
         # create a row with tuple data
-        TestTupleModel.create(partition=pkey, int_tuple=(1, 2, 3))
+        TestTupleModel.create(self.conn, partition=pkey, int_tuple=(1, 2, 3))
         # create another with no tuple data
-        TestTupleModel.create(partition=pkey)
+        TestTupleModel.create(self.conn, partition=pkey)
 
-        m = TestTupleModel.get(partition=pkey)
+        m = TestTupleModel.get(self.conn, partition=pkey)
         self.assertEqual(m.int_tuple, (1, 2, 3))
 
     def test_updates(self):
@@ -674,11 +828,11 @@ class TestTupleColumn(BaseCassEngTestCase):
         initial = (1, 2)
         replacement = (1, 2, 3)
 
-        m1 = TestTupleModel.create(int_tuple=initial)
+        m1 = TestTupleModel.create(self.conn, int_tuple=initial)
         m1.int_tuple = replacement
-        m1.save()
+        m1.save(self.conn)
 
-        m2 = TestTupleModel.get(partition=m1.partition)
+        m2 = TestTupleModel.get(self.conn, partition=m1.partition)
         self.assertEqual(tuple(m2.int_tuple), replacement)
 
     def test_update_from_non_empty_to_empty(self):
@@ -692,11 +846,15 @@ class TestTupleColumn(BaseCassEngTestCase):
         @test_category object_mapper
         """
         pkey = uuid4()
-        tmp = TestTupleModel.create(partition=pkey, int_tuple=(1, 2, 3))
+        tmp = TestTupleModel.create(
+            self.conn,
+            partition=pkey,
+            int_tuple=(1, 2, 3),
+        )
         tmp.int_tuple = (None)
-        tmp.update()
+        tmp.update(self.conn)
 
-        tmp = TestTupleModel.get(partition=pkey)
+        tmp = TestTupleModel.get(self.conn, partition=pkey)
         self.assertEqual(tmp.int_tuple, (None))
 
     def test_insert_none(self):
@@ -710,7 +868,11 @@ class TestTupleColumn(BaseCassEngTestCase):
         @test_category object_mapper
         """
         pkey = uuid4()
-        tmp = TestTupleModel.create(partition=pkey, int_tuple=(None))
+        tmp = TestTupleModel.create(
+            self.conn,
+            partition=pkey,
+            int_tuple=(None),
+        )
         self.assertEqual((None), tmp.int_tuple)
 
     def test_blind_tuple_updates_from_none(self):
@@ -719,22 +881,25 @@ class TestTupleColumn(BaseCassEngTestCase):
 
         @since 3.1
         @jira_ticket PYTHON-306
-        @expected_result tuple is created as none, but upserted to contain values
+        @expected_result tuple is created as none, but upserted to contain
+        values
 
         @test_category object_mapper
         """
 
-        m = TestTupleModel.create(int_tuple=None)
+        m = TestTupleModel.create(self.conn, int_tuple=None)
         expected = (1, 2, 3)
         m.int_tuple = expected
-        m.save()
+        m.save(self.conn)
 
-        m2 = TestTupleModel.get(partition=m.partition)
+        m2 = TestTupleModel.get(self.conn, partition=m.partition)
         self.assertEqual(m2.int_tuple, expected)
 
-        TestTupleModel.objects(partition=m.partition).update(int_tuple=None)
+        TestTupleModel.objects(
+            partition=m.partition
+        ).update(self.conn, int_tuple=None)
 
-        m3 = TestTupleModel.get(partition=m.partition)
+        m3 = TestTupleModel.get(self.conn, partition=m.partition)
         self.assertEqual(m3.int_tuple, None)
 
 
@@ -742,23 +907,33 @@ class TestNestedModel(Model):
 
     partition = columns.UUID(primary_key=True, default=uuid4)
     list_list = columns.List(columns.List(columns.Integer), required=False)
-    map_list = columns.Map(columns.Text, columns.List(columns.Text), required=False)
-    set_tuple = columns.Set(columns.Tuple(columns.Integer, columns.Integer), required=False)
-
+    map_list = columns.Map(
+        columns.Text,
+        columns.List(columns.Text),
+        required=False,
+    )
+    set_tuple = columns.Set(
+        columns.Tuple(columns.Integer, columns.Integer),
+        required=False,
+    )
 
 
 class TestNestedType(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        # Skip annotations don't seem to skip class level teradown and setup methods
+        # Skip annotations don't seem to skip class level teradown and setup
+        # methods
+        super(TestNestedType, cls).setUpClass()
         if(CASSANDRA_VERSION >= '2.1'):
-            drop_table(TestNestedModel)
-            sync_table(TestNestedModel)
+            conn = cls.connection()
+            drop_table(conn, TestNestedModel)
+            sync_table(conn, TestNestedModel)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(TestNestedModel)
+        super(TestNestedType, cls).tearDownClass()
+        drop_table(cls.connection(), TestNestedModel)
 
     def test_initial(self):
         """
@@ -770,7 +945,7 @@ class TestNestedType(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        tmp = TestNestedModel.create()
+        tmp = TestNestedModel.create(self.conn)
         tmp.list_list = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
 
     def test_initial_retrieve(self):
@@ -785,16 +960,20 @@ class TestNestedType(BaseCassEngTestCase):
         @test_category object_mapper
         """
 
-        tmp = TestNestedModel.create()
-        tmp2 = tmp.get(partition=tmp.partition)
+        tmp = TestNestedModel.create(self.conn)
+        tmp2 = tmp.get(self.conn, partition=tmp.partition)
         tmp2.list_list = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
-        tmp2.map_list = {'key1': ["text1", "text2", "text3"], "key2": ["text1", "text2", "text3"], "key3": ["text1", "text2", "text3"]}
+        tmp2.map_list = {
+            'key1': ["text1", "text2", "text3"],
+            "key2": ["text1", "text2", "text3"],
+            "key3": ["text1", "text2", "text3"],
+        }
         tmp2.set_tuple = set(((1, 2), (3, 5), (4, 5)))
 
     def test_io_success(self):
         """
-        Tests creation and insertion of various nested collection types with models,
-        and their retrieval.
+        Tests creation and insertion of various nested collection types with
+        models, and their retrieval.
 
         @since 3.1
         @jira_ticket PYTHON-378
@@ -803,11 +982,20 @@ class TestNestedType(BaseCassEngTestCase):
         @test_category object_mapper
         """
         list_list_master = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
-        map_list_master = {'key1': ["text1", "text2", "text3"], "key2": ["text1", "text2", "text3"], "key3": ["text1", "text2", "text3"]}
+        map_list_master = {
+            'key1': ["text1", "text2", "text3"],
+            "key2": ["text1", "text2", "text3"],
+            "key3": ["text1", "text2", "text3"],
+        }
         set_tuple_master = set(((1, 2), (3, 5), (4, 5)))
 
-        m1 = TestNestedModel.create(list_list=list_list_master, map_list=map_list_master, set_tuple=set_tuple_master)
-        m2 = TestNestedModel.get(partition=m1.partition)
+        m1 = TestNestedModel.create(
+            self.conn,
+            list_list=list_list_master,
+            map_list=map_list_master,
+            set_tuple=set_tuple_master,
+        )
+        m2 = TestNestedModel.get(self.conn, partition=m1.partition)
 
         self.assertIsInstance(m2.list_list, list)
         self.assertIsInstance(m2.list_list[0], list)
@@ -829,21 +1017,67 @@ class TestNestedType(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        list_list_bad_list_context = [['text', "text", "text"], ["text", "text", "text"], ["text", "text", "text"]]
+        list_list_bad_list_context = [
+            ['text', "text", "text"],
+            ["text", "text", "text"],
+            ["text", "text", "text"],
+        ]
         list_list_no_list = ['text', "text", "text"]
 
-        map_list_bad_value = {'key1': [1, 2, 3], "key2": [1, 2, 3], "key3": [1, 2, 3]}
-        map_list_bad_key = {1: ["text1", "text2", "text3"], 2: ["text1", "text2", "text3"], 3: ["text1", "text2", "text3"]}
+        map_list_bad_value = {
+            'key1': [1, 2, 3],
+            "key2": [1, 2, 3],
+            "key3": [1, 2, 3],
+        }
+        map_list_bad_key = {
+            1: ["text1", "text2", "text3"],
+            2: ["text1", "text2", "text3"],
+            3: ["text1", "text2", "text3"],
+        }
 
-        set_tuple_bad_tuple_value = set((("text", "text"), ("text", "text"), ("text", "text")))
+        set_tuple_bad_tuple_value = set((
+            ("text", "text"),
+            ("text", "text"),
+            ("text", "text"),
+        ))
         set_tuple_not_set = ['This', 'is', 'not', 'a', 'set']
 
-        self.assertRaises(ValidationError, TestNestedModel.create, **{'list_list': list_list_bad_list_context})
-        self.assertRaises(ValidationError, TestNestedModel.create, **{'list_list': list_list_no_list})
-        self.assertRaises(ValidationError, TestNestedModel.create, **{'map_list': map_list_bad_value})
-        self.assertRaises(ValidationError, TestNestedModel.create, **{'map_list': map_list_bad_key})
-        self.assertRaises(ValidationError, TestNestedModel.create, **{'set_tuple': set_tuple_bad_tuple_value})
-        self.assertRaises(ValidationError, TestNestedModel.create, **{'set_tuple': set_tuple_not_set})
+        self.assertRaises(
+            ValidationError,
+            TestNestedModel.create,
+            self.conn,
+            list_list=list_list_bad_list_context,
+        )
+        self.assertRaises(
+            ValidationError,
+            TestNestedModel.create,
+            self.conn,
+            list_list=list_list_no_list,
+        )
+        self.assertRaises(
+            ValidationError,
+            TestNestedModel.create,
+            self.conn,
+            map_list=map_list_bad_value,
+        )
+        self.assertRaises(
+            ValidationError,
+            TestNestedModel.create,
+            self.conn,
+            map_list=map_list_bad_key,
+        )
+        self.assertRaises(
+            ValidationError,
+            TestNestedModel.create,
+            self.conn,
+            set_tuple=set_tuple_bad_tuple_value,
+        )
+        self.assertRaises(
+            ValidationError,
+            TestNestedModel.create,
+            self.conn,
+            set_tuple=set_tuple_not_set,
+        )
 
     def test_instantiation_with_column_class(self):
         """
@@ -856,9 +1090,19 @@ class TestNestedType(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        list_list = columns.List(columns.List(columns.Integer), required=False)
-        map_list = columns.Map(columns.Text, columns.List(columns.Text), required=False)
-        set_tuple = columns.Set(columns.Tuple(columns.Integer, columns.Integer), required=False)
+        list_list = columns.List(
+            columns.List(columns.Integer),
+            required=False,
+        )
+        map_list = columns.Map(
+            columns.Text,
+            columns.List(columns.Text),
+            required=False,
+        )
+        set_tuple = columns.Set(
+            columns.Tuple(columns.Integer, columns.Integer),
+            required=False,
+        )
 
         self.assertIsInstance(list_list, columns.List)
         self.assertIsInstance(list_list.types[0], columns.List)
@@ -868,7 +1112,8 @@ class TestNestedType(BaseCassEngTestCase):
 
     def test_default_empty_container_saving(self):
         """
-        Tests that the default empty nested collection container is not saved if it hasn't been updated
+        Tests that the default empty nested collection container is not saved
+        if it hasn't been updated
 
         @since 3.1
         @jira_ticket PYTHON-478
@@ -879,14 +1124,24 @@ class TestNestedType(BaseCassEngTestCase):
         pkey = uuid4()
         # create a row with tuple data
         list_list_master = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
-        map_list_master = {'key1': ["text1", "text2", "text3"], "key2": ["text1", "text2", "text3"], "key3": ["text1", "text2", "text3"]}
+        map_list_master = {
+            'key1': ["text1", "text2", "text3"],
+            "key2": ["text1", "text2", "text3"],
+            "key3": ["text1", "text2", "text3"],
+        }
         set_tuple_master = set(((1, 2), (3, 5), (4, 5)))
 
-        TestNestedModel.create(partition=pkey, list_list=list_list_master, map_list=map_list_master, set_tuple=set_tuple_master)
+        TestNestedModel.create(
+            self.conn,
+            partition=pkey,
+            list_list=list_list_master,
+            map_list=map_list_master,
+            set_tuple=set_tuple_master,
+        )
         # create another with no tuple data
-        TestNestedModel.create(partition=pkey)
+        TestNestedModel.create(self.conn, partition=pkey)
 
-        m = TestNestedModel.get(partition=pkey)
+        m = TestNestedModel.get(self.conn, partition=pkey)
         self.assertEqual(m.list_list, list_list_master)
         self.assertEqual(m.map_list, map_list_master)
         self.assertEqual(m.set_tuple, set_tuple_master)
@@ -905,17 +1160,29 @@ class TestNestedType(BaseCassEngTestCase):
         list_list_replacement = [[1, 2, 3], [3, 4, 5]]
         set_tuple_initial = set(((1, 2), (3, 5), (4, 5)))
 
-        map_list_initial = {'key1': ["text1", "text2", "text3"], "key2": ["text1", "text2", "text3"], "key3": ["text1", "text2", "text3"]}
-        map_list_replacement = {'key1': ["text1", "text2", "text3"], "key3": ["text1", "text2", "text3"]}
+        map_list_initial = {
+            'key1': ["text1", "text2", "text3"],
+            "key2": ["text1", "text2", "text3"],
+            "key3": ["text1", "text2", "text3"],
+        }
+        map_list_replacement = {
+            'key1': ["text1", "text2", "text3"],
+            "key3": ["text1", "text2", "text3"],
+        }
         set_tuple_replacement = set(((7, 7), (7, 7), (4, 5)))
 
-        m1 = TestNestedModel.create(list_list=list_list_initial, map_list=map_list_initial, set_tuple=set_tuple_initial)
+        m1 = TestNestedModel.create(
+            self.conn,
+            list_list=list_list_initial,
+            map_list=map_list_initial,
+            set_tuple=set_tuple_initial,
+        )
         m1.list_list = list_list_replacement
         m1.map_list = map_list_replacement
         m1.set_tuple = set_tuple_replacement
-        m1.save()
+        m1.save(self.conn)
 
-        m2 = TestNestedModel.get(partition=m1.partition)
+        m2 = TestNestedModel.get(self.conn, partition=m1.partition)
         self.assertEqual(m2.list_list, list_list_replacement)
         self.assertEqual(m2.map_list, map_list_replacement)
         self.assertEqual(m2.set_tuple, set_tuple_replacement)
@@ -931,15 +1198,24 @@ class TestNestedType(BaseCassEngTestCase):
         @test_category object_mapper
         """
         list_list_initial = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
-        map_list_initial = {'key1': ["text1", "text2", "text3"], "key2": ["text1", "text2", "text3"], "key3": ["text1", "text2", "text3"]}
+        map_list_initial = {
+            'key1': ["text1", "text2", "text3"],
+            "key2": ["text1", "text2", "text3"],
+            "key3": ["text1", "text2", "text3"],
+        }
         set_tuple_initial = set(((1, 2), (3, 5), (4, 5)))
-        tmp = TestNestedModel.create(list_list=list_list_initial, map_list=map_list_initial, set_tuple=set_tuple_initial)
+        tmp = TestNestedModel.create(
+            self.conn,
+            list_list=list_list_initial,
+            map_list=map_list_initial,
+            set_tuple=set_tuple_initial,
+        )
         tmp.list_list = []
         tmp.map_list = {}
         tmp.set_tuple = set()
-        tmp.update()
+        tmp.update(self.conn)
 
-        tmp = TestNestedModel.get(partition=tmp.partition)
+        tmp = TestNestedModel.get(self.conn, partition=tmp.partition)
         self.assertEqual(tmp.list_list, [])
         self.assertEqual(tmp.map_list, {})
         self.assertEqual(tmp.set_tuple, set())
@@ -955,7 +1231,13 @@ class TestNestedType(BaseCassEngTestCase):
         @test_category object_mapper
         """
         pkey = uuid4()
-        tmp = TestNestedModel.create(partition=pkey, list_list=(None), map_list=(None), set_tuple=(None))
+        tmp = TestNestedModel.create(
+            self.conn,
+            partition=pkey,
+            list_list=(None),
+            map_list=(None),
+            set_tuple=(None),
+        )
         self.assertEqual([], tmp.list_list)
         self.assertEqual({}, tmp.map_list)
         self.assertEqual(set(), tmp.set_tuple)
