@@ -170,43 +170,51 @@ class MockLoggingHandler(logging.Handler):
         return count
 
 
-# def execute_count(expected):
-#     """
-#     A decorator used wrap cqlmapper.connection.execute. It counts
-#     the number of times this method is invoked then compares it to the number
-#     expected. If they don't match it throws an assertion error. This function
-#     can be disabled by running the test harness with the env variable
-#     CQL_SKIP_EXECUTE=1 set
-#     """
-#     def innerCounter(fn):
-#         def wrapped_function(*args, **kwargs):
-#             # Create a counter monkey patch into cqlmapper.connection.execute
-#             count = StatementCounter(cqlmapper.connection.execute)
-#             original_function = cqlmapper.connection.execute
-#             # Monkey patch in our StatementCounter wrapper
-#             cqlmapper.connection.execute = count.wrapped_execute
-#             # Invoked the underlying unit test
-#             to_return = fn(*args, **kwargs)
-#             # Get the count from our monkey patched counter
-#             count.get_counter()
-#             # DeMonkey Patch our code
-#             cqlmapper.connection.execute = original_function
-#             # Check to see if we have a pre-existing test case to work from.
-#             if len(args) is 0:
-#                 test_case = unittest.TestCase("__init__")
-#             else:
-#                 test_case = args[0]
-#             # Check to see if the count is what you expect
-#             test_case.assertEqual(count.get_counter(), expected, msg="Expected number of cqlmapper.connection.execute calls ({0}) doesn't match actual number invoked ({1})".format(expected, count.get_counter()))
-#             return to_return
-#         # Name of the wrapped function must match the original or unittest will error out.
-#         wrapped_function.__name__ = fn.__name__
-#         wrapped_function.__doc__ = fn.__doc__
-#         # Escape hatch
-#         if(CQL_SKIP_EXECUTE):
-#             return fn
-#         else:
-#             return wrapped_function
+def execute_count(expected):
+    """
+    A decorator used wrap cqlmapper.connection.execute. It counts
+    the number of times this method is invoked then compares it to the number
+    expected. If they don't match it throws an assertion error. This function
+    can be disabled by running the test harness with the env variable
+    CQL_SKIP_EXECUTE=1 set
+    """
+    def innerCounter(fn):
+        def wrapped_function(*args, **kwargs):
+            self = args[0]
+            # Create a counter monkey patch into cqlmapper.connection.execute
+            count = StatementCounter(self.conn.execute)
+            original_function = self.conn.execute
+            # Monkey patch in our StatementCounter wrapper
+            self.conn.execute = count.wrapped_execute
+            try:
+                # Invoked the underlying unit test
+                to_return = fn(*args, **kwargs)
+                # Get the count from our monkey patched counter
+                count.get_counter()
+            finally:
+                # DeMonkey Patch our code
+                self.conn.execute = original_function
+            # Check to see if the count is what you expect
+            self.assertEqual(
+                count.get_counter(),
+                expected,
+                msg=(
+                    "Expected number of self.conn.execute calls ({0}) "
+                    "doesn't match actual number invoked ({1})".format(
+                        expected,
+                        count.get_counter(),
+                    )
+                ),
+            )
+            return to_return
+        # Name of the wrapped function must match the original or unittest will error out.
+        wrapped_function.__name__ = fn.__name__
+        wrapped_function.__doc__ = fn.__doc__
+        # Escape hatch
+        if(CQL_SKIP_EXECUTE):
+            return fn
+        else:
+            return wrapped_function
 
-#     return innerCounter
+    return innerCounter
 
