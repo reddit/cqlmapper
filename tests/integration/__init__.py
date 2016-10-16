@@ -49,12 +49,8 @@ import cassandra
 _connections = {}
 
 DEFAULT_KEYSPACE = 'cqlengine_test'
-SINGLE_NODE_CLUSTER_NAME = 'single_node'
-CASSANDRA_VERSION = "2.2.7"
 CQL_SKIP_EXECUTE = bool(os.getenv('CQL_SKIP_EXECUTE', False))
-CCM_CLUSTER = None
-CCM_KWARGS = {}
-CCM_KWARGS['version'] = CASSANDRA_VERSION
+CASSANDRA_VERSION = "2.2.7"
 PROTOCOL_VERSION = 4
 
 cass_version = None

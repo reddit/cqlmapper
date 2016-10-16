@@ -622,7 +622,7 @@ class BaseModel(object):
         return self
 
     def _execute_query(self, conn, q):
-        assert q.statement is not None
+        assert q.statement is not None or q.cleanup_statement is not None
         if self._batch:
             ret = self._batch.add(q.statement)
             if q.cleanup_statement:

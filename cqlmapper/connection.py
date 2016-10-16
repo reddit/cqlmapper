@@ -88,13 +88,18 @@ class Connection(object):
         return statement, params
 
     def _excecute_dml_query(self, query):
-        statement, params = self._prepare_query_statement(query, query.statement)
-        result = self.execute(
-            statement=statement,
-            params=params,
-            timeout=query.timeout,
-            verify_applied=query.check_applied,
-        )
+        result = None
+        if query.statement:
+            statement, params = self._prepare_query_statement(
+                query,
+                query.statement
+            )
+            result = self.execute(
+                statement=statement,
+                params=params,
+                timeout=query.timeout,
+                verify_applied=query.check_applied,
+            )
         if query.cleanup_statement:
             c_statement, c_params = self._prepare_query_statement(
                 query,
