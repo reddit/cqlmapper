@@ -17,49 +17,61 @@ except ImportError:
     import unittest  # noqa
 
 import mock
-import logging
-from cqlmapper.connection import get_session, get_cluster
 from cqlmapper import CQLEngineException
 from cqlmapper import management
-from cqlmapper.management import _get_table_metadata, sync_table, drop_table, sync_type
+from cqlmapper.management import (
+    _get_table_metadata,
+    sync_table,
+    drop_table,
+)
 from cqlmapper.models import Model
 from cqlmapper import columns
 
-from tests.integration import PROTOCOL_VERSION, greaterthancass20, MockLoggingHandler, CASSANDRA_VERSION
-from tests.integration.cqlengine.base import BaseCassEngTestCase
-from tests.integration.cqlengine.query.test_queryset import TestModel
-from cqlmapper.usertype import UserType
-from tests.integration.cqlengine import DEFAULT_KEYSPACE
+from tests.integration import PROTOCOL_VERSION
+from tests.integration.base import BaseCassEngTestCase
+
+
+class TestModel(Model):
+
+    test_id = columns.Integer(primary_key=True)
+    attempt_id = columns.Integer(primary_key=True)
+    description = columns.Text()
+    expected_result = columns.Integer()
+    test_result = columns.Integer()
 
 
 class KeyspaceManagementTest(BaseCassEngTestCase):
     def test_create_drop_succeeeds(self):
-        cluster = get_cluster()
+        cluster = self.conn.cluster
 
         keyspace_ss = 'test_ks_ss'
         self.assertNotIn(keyspace_ss, cluster.metadata.keyspaces)
-        management.create_keyspace_simple(keyspace_ss, 2)
+        management.create_keyspace_simple(self.conn, keyspace_ss, 2)
         self.assertIn(keyspace_ss, cluster.metadata.keyspaces)
 
-        management.drop_keyspace(keyspace_ss)
+        management.drop_keyspace(self.conn, keyspace_ss)
         self.assertNotIn(keyspace_ss, cluster.metadata.keyspaces)
 
         keyspace_nts = 'test_ks_nts'
         self.assertNotIn(keyspace_nts, cluster.metadata.keyspaces)
-        management.create_keyspace_network_topology(keyspace_nts, {'dc1': 1})
+        management.create_keyspace_network_topology(
+            self.conn,
+            keyspace_nts,
+            {'dc1': 1},
+        )
         self.assertIn(keyspace_nts, cluster.metadata.keyspaces)
 
-        management.drop_keyspace(keyspace_nts)
+        management.drop_keyspace(self.conn, keyspace_nts)
         self.assertNotIn(keyspace_nts, cluster.metadata.keyspaces)
 
 
 class DropTableTest(BaseCassEngTestCase):
 
     def test_multiple_deletes_dont_fail(self):
-        sync_table(TestModel)
+        sync_table(self.conn, TestModel)
 
-        drop_table(TestModel)
-        drop_table(TestModel)
+        drop_table(self.conn, TestModel)
+        drop_table(self.conn, TestModel)
 
 
 class LowercaseKeyModel(Model):
@@ -124,11 +136,11 @@ class CapitalizedKeyTest(BaseCassEngTestCase):
 
     def test_table_definition(self):
         """ Tests that creating a table with capitalized column names succeeds """
-        sync_table(LowercaseKeyModel)
-        sync_table(CapitalizedKeyModel)
+        sync_table(self.conn, LowercaseKeyModel)
+        sync_table(self.conn, CapitalizedKeyModel)
 
-        drop_table(LowercaseKeyModel)
-        drop_table(CapitalizedKeyModel)
+        drop_table(self.conn, LowercaseKeyModel)
+        drop_table(self.conn, CapitalizedKeyModel)
 
 
 class FirstModel(Model):
@@ -170,19 +182,20 @@ class FourthModel(Model):
 
 class AddColumnTest(BaseCassEngTestCase):
     def setUp(self):
-        drop_table(FirstModel)
+        super(AddColumnTest, self).setUp()
+        drop_table(self.conn, FirstModel)
 
     def test_add_column(self):
-        sync_table(FirstModel)
-        meta_columns = _get_table_metadata(FirstModel).columns
+        sync_table(self.conn, FirstModel)
+        meta_columns = _get_table_metadata(self.conn, FirstModel).columns
         self.assertEqual(set(meta_columns), set(FirstModel._columns))
 
-        sync_table(SecondModel)
-        meta_columns = _get_table_metadata(FirstModel).columns
+        sync_table(self.conn, SecondModel)
+        meta_columns = _get_table_metadata(self.conn, FirstModel).columns
         self.assertEqual(set(meta_columns), set(SecondModel._columns))
 
-        sync_table(ThirdModel)
-        meta_columns = _get_table_metadata(FirstModel).columns
+        sync_table(self.conn, ThirdModel)
+        meta_columns = _get_table_metadata(self.conn, FirstModel).columns
         self.assertEqual(len(meta_columns), 5)
         self.assertEqual(len(ThirdModel._columns), 4)
         self.assertIn('fourth_key', meta_columns)
@@ -190,8 +203,8 @@ class AddColumnTest(BaseCassEngTestCase):
         self.assertIn('blah', ThirdModel._columns)
         self.assertIn('blah', meta_columns)
 
-        sync_table(FourthModel)
-        meta_columns = _get_table_metadata(FirstModel).columns
+        sync_table(self.conn, FourthModel)
+        meta_columns = _get_table_metadata(self.conn, FirstModel).columns
         self.assertEqual(len(meta_columns), 5)
         self.assertEqual(len(ThirdModel._columns), 4)
         self.assertIn('fourth_key', meta_columns)
@@ -215,24 +228,32 @@ class ModelWithTableProperties(Model):
 class TablePropertiesTests(BaseCassEngTestCase):
 
     def setUp(self):
-        drop_table(ModelWithTableProperties)
+        super(TablePropertiesTests, self).setUp()
+        drop_table(self.conn, ModelWithTableProperties)
 
     def test_set_table_properties(self):
 
-        sync_table(ModelWithTableProperties)
-        expected = {'bloom_filter_fp_chance': 0.76328,
-                    'comment': 'TxfguvBdzwROQALmQBOziRMbkqVGFjqcJfVhwGR',
-                    'gc_grace_seconds': 2063,
-                    'read_repair_chance': 0.17985,
-                     # For some reason 'dclocal_read_repair_chance' in CQL is called
-                     #  just 'local_read_repair_chance' in the schema table.
-                     #  Source: https://issues.apache.org/jira/browse/CASSANDRA-6717
-                     #  TODO: due to a bug in the native driver i'm not seeing the local read repair chance show up
-                     # 'local_read_repair_chance': 0.50811,
-                    }
-        options = management._get_table_metadata(ModelWithTableProperties).options
-        self.assertEqual(dict([(k, options.get(k)) for k in expected.keys()]),
-                         expected)
+        sync_table(self.conn, ModelWithTableProperties)
+        expected = {
+            'bloom_filter_fp_chance': 0.76328,
+            'comment': 'TxfguvBdzwROQALmQBOziRMbkqVGFjqcJfVhwGR',
+            'gc_grace_seconds': 2063,
+            'read_repair_chance': 0.17985,
+            # For some reason 'dclocal_read_repair_chance' in CQL is called
+            #  just 'local_read_repair_chance' in the schema table.
+            #  Source: https://issues.apache.org/jira/browse/CASSANDRA-6717
+            #  TODO: due to a bug in the native driver i'm not seeing the
+            #  local read repair chance show up
+            # 'local_read_repair_chance': 0.50811,
+        }
+        options = management._get_table_metadata(
+            self.conn,
+            ModelWithTableProperties,
+        ).options
+        self.assertEqual(
+            dict([(k, options.get(k)) for k in expected.keys()]),
+            expected,
+        )
 
     def test_table_property_update(self):
         ModelWithTableProperties.__options__['bloom_filter_fp_chance'] = 0.66778
@@ -242,18 +263,30 @@ class TablePropertiesTests(BaseCassEngTestCase):
         ModelWithTableProperties.__options__['read_repair_chance'] = 0.2989
         ModelWithTableProperties.__options__['dclocal_read_repair_chance'] = 0.12732
 
-        sync_table(ModelWithTableProperties)
+        sync_table(self.conn, ModelWithTableProperties)
 
-        table_options = management._get_table_metadata(ModelWithTableProperties).options
+        table_options = management._get_table_metadata(
+            self.conn,
+            ModelWithTableProperties,
+        ).options
 
-        self.assertDictContainsSubset(ModelWithTableProperties.__options__, table_options)
+        self.assertDictContainsSubset(
+            ModelWithTableProperties.__options__,
+            table_options,
+        )
 
     def test_bogus_option_update(self):
-        sync_table(ModelWithTableProperties)
+        sync_table(self.conn, ModelWithTableProperties)
         option = 'no way will this ever be an option'
         try:
             ModelWithTableProperties.__options__[option] = 'what was I thinking?'
-            self.assertRaisesRegexp(KeyError, "Invalid table option.*%s.*" % option, sync_table, ModelWithTableProperties)
+            self.assertRaisesRegexp(
+                KeyError,
+                "Invalid table option.*%s.*" % option,
+                sync_table,
+                self.conn,
+                ModelWithTableProperties,
+            )
         finally:
             ModelWithTableProperties.__options__.pop(option, None)
 
@@ -261,22 +294,34 @@ class TablePropertiesTests(BaseCassEngTestCase):
 class SyncTableTests(BaseCassEngTestCase):
 
     def setUp(self):
-        drop_table(PrimaryKeysOnlyModel)
+        super(SyncTableTests, self).setUp()
+        drop_table(self.conn, PrimaryKeysOnlyModel)
 
     def test_sync_table_works_with_primary_keys_only_tables(self):
 
-        sync_table(PrimaryKeysOnlyModel)
+        sync_table(self.conn, PrimaryKeysOnlyModel)
         # blows up with DoesNotExist if table does not exist
-        table_meta = management._get_table_metadata(PrimaryKeysOnlyModel)
+        table_meta = management._get_table_metadata(
+            self.conn,
+            PrimaryKeysOnlyModel,
+        )
 
         self.assertIn('LeveledCompactionStrategy', table_meta.as_cql_query())
 
-        PrimaryKeysOnlyModel.__options__['compaction']['class'] = 'SizeTieredCompactionStrategy'
+        PrimaryKeysOnlyModel.__options__['compaction']['class'] = (
+            'SizeTieredCompactionStrategy'
+        )
 
-        sync_table(PrimaryKeysOnlyModel)
+        sync_table(self.conn, PrimaryKeysOnlyModel)
 
-        table_meta = management._get_table_metadata(PrimaryKeysOnlyModel)
-        self.assertIn('SizeTieredCompactionStrategy', table_meta.as_cql_query())
+        table_meta = management._get_table_metadata(
+            self.conn,
+            PrimaryKeysOnlyModel,
+        )
+        self.assertIn(
+            'SizeTieredCompactionStrategy',
+            table_meta.as_cql_query(),
+        )
 
     def test_primary_key_validation(self):
         """
@@ -288,10 +333,25 @@ class SyncTableTests(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        sync_table(PrimaryKeysOnlyModel)
-        self.assertRaises(CQLEngineException, sync_table, PrimaryKeysModelChanged)
-        self.assertRaises(CQLEngineException, sync_table, PrimaryKeysAddedClusteringKey)
-        self.assertRaises(CQLEngineException, sync_table, PrimaryKeysRemovedPk)
+        sync_table(self.conn, PrimaryKeysOnlyModel)
+        self.assertRaises(
+            CQLEngineException,
+            sync_table,
+            self.conn,
+            PrimaryKeysModelChanged,
+        )
+        self.assertRaises(
+            CQLEngineException,
+            sync_table,
+            self.conn,
+            PrimaryKeysAddedClusteringKey,
+        )
+        self.assertRaises(
+            CQLEngineException,
+            sync_table,
+            self.conn,
+            PrimaryKeysRemovedPk,
+        )
 
 
 class IndexModel(Model):
@@ -325,47 +385,6 @@ class ChangedInconsistent(Model):
     second_key = columns.Text(index=True)
 
 
-class BaseInconsistentType(UserType):
-        __type_name__ = 'type_inconsistent'
-        age = columns.Integer()
-        name = columns.Text()
-
-
-class ChangedInconsistentType(UserType):
-        __type_name__ = 'type_inconsistent'
-        age = columns.Integer()
-        name = columns.Integer()
-
-
-class InconsistentTable(BaseCassEngTestCase):
-
-    def setUp(self):
-        drop_table(IndexModel)
-
-    def test_sync_warnings(self):
-        """
-        Test to insure when inconsistent changes are made to a table, or type as part of a sync call that the proper logging messages are surfaced
-
-        @since 3.2
-        @jira_ticket PYTHON-260
-        @expected_result warnings are logged
-
-        @test_category object_mapper
-        """
-        mock_handler = MockLoggingHandler()
-        logger = logging.getLogger(management.__name__)
-        logger.addHandler(mock_handler)
-        sync_table(BaseInconsistent)
-        sync_table(ChangedInconsistent)
-        self.assertTrue('differing from the model type' in mock_handler.messages.get('warning')[0])
-        if CASSANDRA_VERSION >= '2.1':
-            sync_type(DEFAULT_KEYSPACE, BaseInconsistentType)
-            mock_handler.reset()
-            sync_type(DEFAULT_KEYSPACE, ChangedInconsistentType)
-            self.assertTrue('differing from the model user type' in mock_handler.messages.get('warning')[0])
-        logger.removeHandler(mock_handler)
-
-
 class TestIndexSetModel(Model):
     partition = columns.UUID(primary_key=True)
     int_set = columns.Set(columns.Integer, index=True)
@@ -377,13 +396,14 @@ class TestIndexSetModel(Model):
 class IndexTests(BaseCassEngTestCase):
 
     def setUp(self):
-        drop_table(IndexModel)
-        drop_table(IndexCaseSensitiveModel)
+        super(IndexTests, self).setUp()
+        drop_table(self.conn, IndexModel)
+        drop_table(self.conn, IndexCaseSensitiveModel)
 
     def test_sync_index(self):
         """
-        Tests the default table creation, and ensures the table_name is created and surfaced correctly
-        in the table metadata
+        Tests the default table creation, and ensures the table_name is
+        created and surfaced correctly in the table metadata
 
         @since 3.1
         @jira_ticket PYTHON-337
@@ -391,19 +411,23 @@ class IndexTests(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        sync_table(IndexModel)
-        table_meta = management._get_table_metadata(IndexModel)
-        self.assertIsNotNone(management._get_index_name_by_column(table_meta, 'second_key'))
+        sync_table(self.conn, IndexModel)
+        table_meta = management._get_table_metadata(self.conn, IndexModel)
+        self.assertIsNotNone(
+            management._get_index_name_by_column(table_meta, 'second_key')
+        )
 
         # index already exists
-        sync_table(IndexModel)
-        table_meta = management._get_table_metadata(IndexModel)
-        self.assertIsNotNone(management._get_index_name_by_column(table_meta, 'second_key'))
+        sync_table(self.conn, IndexModel)
+        table_meta = management._get_table_metadata(self.conn, IndexModel)
+        self.assertIsNotNone(
+            management._get_index_name_by_column(table_meta, 'second_key')
+        )
 
     def test_sync_index_case_sensitive(self):
         """
-        Tests the default table creation, and ensures the table_name is created correctly and surfaced correctly
-        in table metadata
+        Tests the default table creation, and ensures the table_name is
+        created correctly and surfaced correctly in table metadata
 
         @since 3.1
         @jira_ticket PYTHON-337
@@ -411,16 +435,25 @@ class IndexTests(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        sync_table(IndexCaseSensitiveModel)
-        table_meta = management._get_table_metadata(IndexCaseSensitiveModel)
-        self.assertIsNotNone(management._get_index_name_by_column(table_meta, 'second_key'))
+        sync_table(self.conn, IndexCaseSensitiveModel)
+        table_meta = management._get_table_metadata(
+            self.conn,
+            IndexCaseSensitiveModel,
+        )
+        self.assertIsNotNone(
+            management._get_index_name_by_column(table_meta, 'second_key')
+        )
 
         # index already exists
-        sync_table(IndexCaseSensitiveModel)
-        table_meta = management._get_table_metadata(IndexCaseSensitiveModel)
-        self.assertIsNotNone(management._get_index_name_by_column(table_meta, 'second_key'))
+        sync_table(self.conn, IndexCaseSensitiveModel)
+        table_meta = management._get_table_metadata(
+            self.conn,
+            IndexCaseSensitiveModel,
+        )
+        self.assertIsNotNone(
+            management._get_index_name_by_column(table_meta, 'second_key')
+        )
 
-    @greaterthancass20
     def test_sync_indexed_set(self):
         """
         Tests that models that have container types with indices can be synced.
@@ -431,12 +464,23 @@ class IndexTests(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        sync_table(TestIndexSetModel)
-        table_meta = management._get_table_metadata(TestIndexSetModel)
-        self.assertIsNotNone(management._get_index_name_by_column(table_meta, 'int_set'))
-        self.assertIsNotNone(management._get_index_name_by_column(table_meta, 'int_list'))
-        self.assertIsNotNone(management._get_index_name_by_column(table_meta, 'text_map'))
-        self.assertIsNotNone(management._get_index_name_by_column(table_meta, 'mixed_tuple'))
+        sync_table(self.conn, TestIndexSetModel)
+        table_meta = management._get_table_metadata(
+            self.conn,
+            TestIndexSetModel,
+        )
+        self.assertIsNotNone(
+            management._get_index_name_by_column(table_meta, 'int_set')
+        )
+        self.assertIsNotNone(
+            management._get_index_name_by_column(table_meta, 'int_list')
+        )
+        self.assertIsNotNone(
+            management._get_index_name_by_column(table_meta, 'text_map')
+        )
+        self.assertIsNotNone(
+            management._get_index_name_by_column(table_meta, 'mixed_tuple')
+        )
 
 
 class NonModelFailureTest(BaseCassEngTestCase):
@@ -445,34 +489,38 @@ class NonModelFailureTest(BaseCassEngTestCase):
 
     def test_failure(self):
         with self.assertRaises(CQLEngineException):
-            sync_table(self.FakeModel)
+            sync_table(self.conn, self.FakeModel)
 
 
 class StaticColumnTests(BaseCassEngTestCase):
     def test_static_columns(self):
         if PROTOCOL_VERSION < 2:
-            raise unittest.SkipTest("Native protocol 2+ required, currently using: {0}".format(PROTOCOL_VERSION))
+            raise unittest.SkipTest(
+                "Native protocol 2+ required, currently using: {0}".format(
+                    PROTOCOL_VERSION
+                )
+            )
 
         class StaticModel(Model):
             id = columns.Integer(primary_key=True)
             c = columns.Integer(primary_key=True)
             name = columns.Text(static=True)
 
-        drop_table(StaticModel)
+        drop_table(self.conn, StaticModel)
 
-        session = get_session()
+        session = self.conn.session
 
         with mock.patch.object(session, "execute", wraps=session.execute) as m:
-            sync_table(StaticModel)
+            sync_table(self.conn, StaticModel)
 
         self.assertGreater(m.call_count, 0)
         statement = m.call_args[0][0].query_string
         self.assertIn('"name" text static', statement)
 
         # if we sync again, we should not apply an alter w/ a static
-        sync_table(StaticModel)
+        sync_table(self.conn, StaticModel)
 
         with mock.patch.object(session, "execute", wraps=session.execute) as m2:
-            sync_table(StaticModel)
+            sync_table(self.conn, StaticModel)
 
         self.assertEqual(len(m2.call_args_list), 0)

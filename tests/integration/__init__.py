@@ -137,6 +137,33 @@ class StatementCounter(object):
         return self.counter
 
 
+class MockLoggingHandler(logging.Handler):
+    """Mock logging handler to check for expected logs."""
+
+    def __init__(self, *args, **kwargs):
+        self.reset()
+        logging.Handler.__init__(self, *args, **kwargs)
+
+    def emit(self, record):
+        self.messages[record.levelname.lower()].append(record.getMessage())
+
+    def reset(self):
+        self.messages = {
+            'debug': [],
+            'info': [],
+            'warning': [],
+            'error': [],
+            'critical': [],
+        }
+
+    def get_message_count(self, level, sub_string):
+        count = 0
+        for msg in self.messages.get(level):
+            if sub_string in msg:
+                count+=1
+        return count
+
+
 # def execute_count(expected):
 #     """
 #     A decorator used wrap cqlmapper.connection.execute. It counts
