@@ -20,17 +20,17 @@ except ImportError:
 
 from cassandra import InvalidRequest
 from cqlmapper.management import sync_table, drop_table
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
 from cqlmapper.models import Model
 from uuid import uuid4
 from cqlmapper import columns
+from cqlmapper.query_set import ModelQuerySet
 import mock
-from cqlmapper.connection import get_session
 from tests.integration import CASSANDRA_VERSION
 
 
 class TestTTLModel(Model):
-    id = columns.UUID(primary_key=True, default=lambda: uuid4())
+    id = columns.UUID(primary_key=True, default=uuid4)
     count = columns.Integer()
     text = columns.Text(required=False)
 
@@ -40,17 +40,17 @@ class BaseTTLTest(BaseCassEngTestCase):
     @classmethod
     def setUpClass(cls):
         super(BaseTTLTest, cls).setUpClass()
-        sync_table(TestTTLModel)
+        sync_table(cls.connection(), TestTTLModel)
 
     @classmethod
     def tearDownClass(cls):
         super(BaseTTLTest, cls).tearDownClass()
-        drop_table(TestTTLModel)
+        drop_table(cls.connection(), TestTTLModel)
 
 
 class TestDefaultTTLModel(Model):
     __options__ = {'default_time_to_live': 20}
-    id = columns.UUID(primary_key=True, default=lambda:uuid4())
+    id = columns.UUID(primary_key=True, default=uuid4)
     count = columns.Integer()
     text = columns.Text(required=False)
 
@@ -61,15 +61,17 @@ class BaseDefaultTTLTest(BaseCassEngTestCase):
     def setUpClass(cls):
         if CASSANDRA_VERSION >= '2.0':
             super(BaseDefaultTTLTest, cls).setUpClass()
-            sync_table(TestDefaultTTLModel)
-            sync_table(TestTTLModel)
+            conn = cls.connection()
+            sync_table(conn, TestDefaultTTLModel)
+            sync_table(conn, TestTTLModel)
 
     @classmethod
     def tearDownClass(cls):
         if CASSANDRA_VERSION >= '2.0':
             super(BaseDefaultTTLTest, cls).tearDownClass()
-            drop_table(TestDefaultTTLModel)
-            drop_table(TestTTLModel)
+            conn = cls.connection()
+            drop_table(conn, TestDefaultTTLModel)
+            drop_table(conn, TestTTLModel)
 
 
 class TTLQueryTests(BaseTTLTest):
@@ -85,10 +87,9 @@ class TTLModelTests(BaseTTLTest):
 
     def test_ttl_included_on_create(self):
         """ tests that ttls on models work as expected """
-        session = get_session()
 
-        with mock.patch.object(session, 'execute') as m:
-            TestTTLModel.ttl(60).create(text="hello blake")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            TestTTLModel.ttl(60).create(self.conn, text="hello blake")
 
         query = m.call_args[0][0].query_string
         self.assertIn("USING TTL", query)
@@ -98,24 +99,24 @@ class TTLModelTests(BaseTTLTest):
         ensures we get a queryset descriptor back
         """
         qs = TestTTLModel.ttl(60)
-        self.assertTrue(isinstance(qs, TestTTLModel.__queryset__), type(qs))
+        self.assertTrue(
+            isinstance(qs, ModelQuerySet), type(qs)
+        )
 
 
 class TTLInstanceUpdateTest(BaseTTLTest):
     def test_update_includes_ttl(self):
-        session = get_session()
-
-        model = TestTTLModel.create(text="goodbye blake")
-        with mock.patch.object(session, 'execute') as m:
-            model.ttl(60).update(text="goodbye forever")
+        model = TestTTLModel.create(self.conn, text="goodbye blake")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            model.ttl(60).update(self.conn, text="goodbye forever")
 
         query = m.call_args[0][0].query_string
         self.assertIn("USING TTL", query)
 
     def test_update_syntax_valid(self):
         # sanity test that ensures the TTL syntax is accepted by cassandra
-        model = TestTTLModel.create(text="goodbye blake")
-        model.ttl(60).update(text="goodbye forever")
+        model = TestTTLModel.create(self.conn, text="goodbye blake")
+        model.ttl(60).update(self.conn, text="goodbye forever")
 
 
 class TTLInstanceTest(BaseTTLTest):
@@ -124,20 +125,18 @@ class TTLInstanceTest(BaseTTLTest):
         ensures that we properly handle the instance.ttl(60).save() scenario
         :return:
         """
-        o = TestTTLModel.create(text="whatever")
+        o = TestTTLModel.create(self.conn, text="whatever")
         o.text = "new stuff"
         o = o.ttl(60)
         self.assertEqual(60, o._ttl)
 
     def test_ttl_is_include_with_query_on_update(self):
-        session = get_session()
-
-        o = TestTTLModel.create(text="whatever")
+        o = TestTTLModel.create(self.conn, text="whatever")
         o.text = "new stuff"
         o = o.ttl(60)
 
-        with mock.patch.object(session, 'execute') as m:
-            o.save()
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            o.save(self.conn)
 
         query = m.call_args[0][0].query_string
         self.assertIn("USING TTL", query)
@@ -145,34 +144,42 @@ class TTLInstanceTest(BaseTTLTest):
 
 class TTLBlindUpdateTest(BaseTTLTest):
     def test_ttl_included_with_blind_update(self):
-        session = get_session()
-
-        o = TestTTLModel.create(text="whatever")
+        o = TestTTLModel.create(self.conn, text="whatever")
         tid = o.id
 
-        with mock.patch.object(session, 'execute') as m:
-            TestTTLModel.objects(id=tid).ttl(60).update(text="bacon")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            TestTTLModel.objects(
+                id=tid
+            ).ttl(60).update(self.conn, text="bacon")
 
         query = m.call_args[0][0].query_string
         self.assertIn("USING TTL", query)
 
 
-@unittest.skipIf(CASSANDRA_VERSION < '2.0', "default_time_to_Live was introduce in C* 2.0, currently running {0}".format(CASSANDRA_VERSION))
+@unittest.skipIf(
+    CASSANDRA_VERSION < '2.0',
+    "default_time_to_Live was introduce in C* 2.0, "
+    "currently running {0}".format(CASSANDRA_VERSION)
+)
 class TTLDefaultTest(BaseDefaultTTLTest):
     def get_default_ttl(self, table_name):
-        session = get_session()
         try:
-            default_ttl = session.execute("SELECT default_time_to_live FROM system_schema.tables "
-                                          "WHERE keyspace_name = 'cqlengine_test' AND table_name = '{0}'".format(table_name))
+            default_ttl = self.conn.session.execute(
+                "SELECT default_time_to_live FROM system_schema.tables "
+                "WHERE keyspace_name = 'cqlengine_test' AND "
+                "table_name = '{0}'".format(table_name)
+            )
         except InvalidRequest:
-            default_ttl = session.execute("SELECT default_time_to_live FROM system.schema_columnfamilies "
-                                          "WHERE keyspace_name = 'cqlengine_test' AND columnfamily_name = '{0}'".format(table_name))
+            default_ttl = self.conn.session.execute(
+                "SELECT default_time_to_live "
+                "FROM system.schema_columnfamilies "
+                "WHERE keyspace_name = 'cqlengine_test' "
+                "AND columnfamily_name = '{0}'".format(table_name)
+            )
         return default_ttl[0]['default_time_to_live']
 
     def test_default_ttl_not_set(self):
-        session = get_session()
-
-        o = TestTTLModel.create(text="some text")
+        o = TestTTLModel.create(self.conn, text="some text")
         tid = o.id
 
         self.assertIsNone(o._ttl)
@@ -180,16 +187,14 @@ class TTLDefaultTest(BaseDefaultTTLTest):
         default_ttl = self.get_default_ttl('test_ttlmodel')
         self.assertEqual(default_ttl, 0)
 
-        with mock.patch.object(session, 'execute') as m:
-            TestTTLModel.objects(id=tid).update(text="aligators")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            TestTTLModel.objects(id=tid).update(self.conn, text="aligators")
 
         query = m.call_args[0][0].query_string
         self.assertNotIn("USING TTL", query)
 
     def test_default_ttl_set(self):
-        session = get_session()
-
-        o = TestDefaultTTLModel.create(text="some text on ttl")
+        o = TestDefaultTTLModel.create(self.conn, text="some text on ttl")
         tid = o.id
 
         # Should not be set, it's handled by Cassandra
@@ -198,39 +203,40 @@ class TTLDefaultTest(BaseDefaultTTLTest):
         default_ttl = self.get_default_ttl('test_default_ttlmodel')
         self.assertEqual(default_ttl, 20)
 
-        with mock.patch.object(session, 'execute') as m:
-            TestTTLModel.objects(id=tid).update(text="aligators expired")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            TestTTLModel.objects(
+                id=tid
+            ).update(self.conn, text="aligators expired")
 
         # Should not be set either
         query = m.call_args[0][0].query_string
         self.assertNotIn("USING TTL", query)
 
     def test_default_ttl_modify(self):
-        session = get_session()
-
         default_ttl = self.get_default_ttl('test_default_ttlmodel')
         self.assertEqual(default_ttl, 20)
 
         TestDefaultTTLModel.__options__ = {'default_time_to_live': 10}
-        sync_table(TestDefaultTTLModel)
+        sync_table(self.conn, TestDefaultTTLModel)
 
         default_ttl = self.get_default_ttl('test_default_ttlmodel')
         self.assertEqual(default_ttl, 10)
 
         # Restore default TTL
         TestDefaultTTLModel.__options__ = {'default_time_to_live': 20}
-        sync_table(TestDefaultTTLModel)
+        sync_table(self.conn, TestDefaultTTLModel)
 
     def test_override_default_ttl(self):
-        session = get_session()
-        o = TestDefaultTTLModel.create(text="some text on ttl")
+        o = TestDefaultTTLModel.create(self.conn, text="some text on ttl")
         tid = o.id
 
         o.ttl(3600)
         self.assertEqual(o._ttl, 3600)
 
-        with mock.patch.object(session, 'execute') as m:
-            TestDefaultTTLModel.objects(id=tid).ttl(None).update(text="aligators expired")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            TestDefaultTTLModel.objects(
+                id=tid
+            ).ttl(None).update(self.conn, text="aligators expired")
 
         query = m.call_args[0][0].query_string
         self.assertNotIn("USING TTL", query)
