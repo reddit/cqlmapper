@@ -1957,14 +1957,16 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         q = TestModel.objects(test_id=0)
         # tuple of expected attempt_id, expected_result values
         compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
-        for t in q:
+        for t in q.iter(self.conn):
             val = t.attempt_id, t.expected_result
             assert val in compare_set
             compare_set.remove(val)
         assert len(compare_set) == 0
 
         # test with regular filtering
-        q = TestModel.objects(attempt_id=3).allow_filtering()
+        q = TestModel.objects(
+            attempt_id=3
+        ).allow_filtering().find_all(self.conn)
         assert len(q) == 3
         # tuple of expected test_id, expected_result values
         compare_set = set([(0, 20), (1, 20), (2, 75)])
@@ -1975,7 +1977,9 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         assert len(compare_set) == 0
 
         # test with query method
-        q = TestModel.objects(TestModel.column('attempt_id') == 3).allow_filtering()
+        q = TestModel.objects(
+            TestModel.attempt_id == 3
+        ).allow_filtering().find_all(self.conn)
         assert len(q) == 3
         # tuple of expected test_id, expected_result values
         compare_set = set([(0, 20), (1, 20), (2, 75)])
@@ -1989,10 +1993,12 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
     def test_multiple_iterations_work_properly(self):
         """ Tests that iterating over a query set more than once works """
         # test with both the filtering method and the query method
-        for q in (TestModel.objects(test_id=0), TestModel.objects(TestModel.column('test_id') == 0)):
+        q_1 = TestModel.objects(test_id=0)
+        q_2 = TestModel.objects(TestModel.test_id == 0)
+        for q in (q_1, q_2):
             # tuple of expected attempt_id, expected_result values
             compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
-            for t in q:
+            for t in q.iter(self.conn):
                 val = t.attempt_id, t.expected_result
                 assert val in compare_set
                 compare_set.remove(val)
@@ -2000,7 +2006,7 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
 
             # try it again
             compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
-            for t in q:
+            for t in q.iter(self.conn):
                 val = t.attempt_id, t.expected_result
                 assert val in compare_set
                 compare_set.remove(val)
@@ -2011,11 +2017,13 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         """
         tests that the use of one iterator does not affect the behavior of another
         """
-        for q in (TestModel.objects(test_id=0), TestModel.objects(TestModel.column('test_id') == 0)):
+        q_1 = TestModel.objects(test_id=0)
+        q_2 = TestModel.objects(TestModel.test_id == 0)
+        for q in (q_1, q_2):
             q = q.order_by('attempt_id')
             expected_order = [0, 1, 2, 3]
-            iter1 = iter(q)
-            iter2 = iter(q)
+            iter1 = q.iter(self.conn)
+            iter2 = q.iter(self.conn)
             for attempt_id in expected_order:
                 assert next(iter1).attempt_id == attempt_id
                 assert next(iter2).attempt_id == attempt_id
@@ -2025,20 +2033,21 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         """
         Tests that the .get() method works on new and existing querysets
         """
-        m = TestModel.objects.get(test_id=0, attempt_id=0)
-        assert isinstance(m, ResultObject)
+        import logging
+        m = TestModel.objects.get(self.conn, test_id=0, attempt_id=0)
+        assert isinstance(m, TestModel)
         assert m.test_id == 0
         assert m.attempt_id == 0
 
         q = TestModel.objects(test_id=0, attempt_id=0)
-        m = q.get()
-        assert isinstance(m, ResultObject)
+        m = q.get(self.conn)
+        assert isinstance(m, TestModel)
         assert m.test_id == 0
         assert m.attempt_id == 0
 
         q = TestModel.objects(test_id=0)
-        m = q.get(attempt_id=0)
-        assert isinstance(m, ResultObject)
+        m = q.get(self.conn, attempt_id=0)
+        assert isinstance(m, TestModel)
         assert m.test_id == 0
         assert m.attempt_id == 0
 
@@ -2047,38 +2056,47 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         """
         Tests that the .get() method works on new and existing querysets
         """
-        m = TestModel.get(TestModel.column('test_id') == 0, TestModel.column('attempt_id') == 0)
-        assert isinstance(m, ResultObject)
+        m = TestModel.get(
+            self.conn,
+            TestModel.test_id == 0,
+            TestModel.attempt_id == 0,
+        )
+        assert isinstance(m, TestModel)
         assert m.test_id == 0
         assert m.attempt_id == 0
 
-        q = TestModel.objects(TestModel.column('test_id') == 0, TestModel.column('attempt_id') == 0)
-        m = q.get()
-        assert isinstance(m, ResultObject)
+        q = TestModel.objects(
+            TestModel.test_id == 0,
+            TestModel.attempt_id == 0,
+        )
+        m = q.get(self.conn)
+        assert isinstance(m, TestModel)
         assert m.test_id == 0
         assert m.attempt_id == 0
 
-        q = TestModel.objects(TestModel.column('test_id') == 0)
-        m = q.get(TestModel.column('attempt_id') == 0)
-        assert isinstance(m, ResultObject)
+        q = TestModel.objects(TestModel.test_id == 0)
+        m = q.get(self.conn, TestModel.attempt_id == 0)
+        assert isinstance(m, TestModel)
         assert m.test_id == 0
         assert m.attempt_id == 0
 
     @execute_count(1)
     def test_get_doesnotexist_exception(self):
         """
-        Tests that get calls that don't return a result raises a DoesNotExist error
+        Tests that get calls that don't return a result raises a DoesNotExist
+        error
         """
         with self.assertRaises(TestModel.DoesNotExist):
-            TestModel.objects.get(test_id=100)
+            TestModel.objects.get(self.conn, test_id=100)
 
     @execute_count(1)
     def test_get_multipleobjects_exception(self):
         """
-        Tests that get calls that return multiple results raise a MultipleObjectsReturned error
+        Tests that get calls that return multiple results raise a
+        MultipleObjectsReturned error
         """
         with self.assertRaises(TestModel.MultipleObjectsReturned):
-            TestModel.objects.get(test_id=1)
+            TestModel.objects.get(self.conn, test_id=1)
 
 
 if __name__ == "__main__":
