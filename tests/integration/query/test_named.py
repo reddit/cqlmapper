@@ -30,7 +30,7 @@ from tests.integration.cqlengine.base import BaseCassEngTestCase
 from tests.integration.cqlengine.query.test_queryset import BaseQuerySetUsage
 
 
-from tests.integration import BasicSharedKeyspaceUnitTestCase, greaterthanorequalcass30
+from tests.integration import BasicSharedKeyspaceUnitTestCase
 
 
 class TestQuerySetOperation(BaseCassEngTestCase):
@@ -38,8 +38,7 @@ class TestQuerySetOperation(BaseCassEngTestCase):
     @classmethod
     def setUpClass(cls):
         super(TestQuerySetOperation, cls).setUpClass()
-        cls.keyspace = NamedKeyspace('cqlengine_test')
-        cls.table = cls.keyspace.table('test_model')
+        cls.table = cls.connection().keyspace.table('test_model')
 
     def test_query_filter_parsing(self):
         """
@@ -278,111 +277,3 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         """
         with self.assertRaises(self.table.MultipleObjectsReturned):
             self.table.objects.get(test_id=1)
-
-
-class TestNamedWithMV(BasicSharedKeyspaceUnitTestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestNamedWithMV, cls).setUpClass()
-        cls.default_keyspace = models.DEFAULT_KEYSPACE
-        models.DEFAULT_KEYSPACE = cls.ks_name
-
-    @classmethod
-    def tearDownClass(cls):
-        models.DEFAULT_KEYSPACE = cls.default_keyspace
-        setup_connection(models.DEFAULT_KEYSPACE)
-        super(TestNamedWithMV, cls).tearDownClass()
-
-    @greaterthanorequalcass30
-    @execute_count(5)
-    def test_named_table_with_mv(self):
-        """
-        Test NamedTable access to materialized views
-
-        Creates some materialized views using Traditional CQL. Then ensures we can access those materialized view using
-        the NamedKeyspace, and NamedTable interfaces. Tests basic filtering as well.
-
-        @since 3.0.0
-        @jira_ticket PYTHON-406
-        @expected_result Named Tables should have access to materialized views
-
-        @test_category materialized_view
-        """
-        ks = models.DEFAULT_KEYSPACE
-        self.session.execute("DROP MATERIALIZED VIEW IF EXISTS {0}.alltimehigh".format(ks))
-        self.session.execute("DROP MATERIALIZED VIEW IF EXISTS {0}.monthlyhigh".format(ks))
-        self.session.execute("DROP TABLE IF EXISTS {0}.scores".format(ks))
-        create_table = """CREATE TABLE {0}.scores(
-                        user TEXT,
-                        game TEXT,
-                        year INT,
-                        month INT,
-                        day INT,
-                        score INT,
-                        PRIMARY KEY (user, game, year, month, day)
-                        )""".format(ks)
-
-        self.session.execute(create_table)
-        create_mv = """CREATE MATERIALIZED VIEW {0}.monthlyhigh AS
-                        SELECT game, year, month, score, user, day FROM {0}.scores
-                        WHERE game IS NOT NULL AND year IS NOT NULL AND month IS NOT NULL AND score IS NOT NULL AND user IS NOT NULL AND day IS NOT NULL
-                        PRIMARY KEY ((game, year, month), score, user, day)
-                        WITH CLUSTERING ORDER BY (score DESC, user ASC, day ASC)""".format(ks)
-
-        self.session.execute(create_mv)
-
-        create_mv_alltime = """CREATE MATERIALIZED VIEW {0}.alltimehigh AS
-                        SELECT * FROM {0}.scores
-                        WHERE game IS NOT NULL AND score IS NOT NULL AND user IS NOT NULL AND year IS NOT NULL AND month IS NOT NULL AND day IS NOT NULL
-                        PRIMARY KEY (game, score, user, year, month, day)
-                        WITH CLUSTERING ORDER BY (score DESC)""".format(ks)
-
-        self.session.execute(create_mv_alltime)
-
-        # Populate the base table with data
-        prepared_insert = self.session.prepare("""INSERT INTO {0}.scores (user, game, year, month, day, score) VALUES  (?, ?, ? ,? ,?, ?)""".format(ks))
-        parameters = (('pcmanus', 'Coup', 2015, 5, 1, 4000),
-                      ('jbellis', 'Coup', 2015, 5, 3, 1750),
-                      ('yukim', 'Coup', 2015, 5, 3, 2250),
-                      ('tjake', 'Coup', 2015, 5, 3, 500),
-                      ('iamaleksey', 'Coup', 2015, 6, 1, 2500),
-                      ('tjake', 'Coup', 2015, 6, 2, 1000),
-                      ('pcmanus', 'Coup', 2015, 6, 2, 2000),
-                      ('jmckenzie', 'Coup', 2015, 6, 9, 2700),
-                      ('jbellis', 'Coup', 2015, 6, 20, 3500),
-                      ('jbellis', 'Checkers', 2015, 6, 20, 1200),
-                      ('jbellis', 'Chess', 2015, 6, 21, 3500),
-                      ('pcmanus', 'Chess', 2015, 1, 25, 3200))
-        prepared_insert.consistency_level = ConsistencyLevel.ALL
-        execute_concurrent_with_args(self.session, prepared_insert, parameters)
-
-        # Attempt to query the data using Named Table interface
-        # Also test filtering on mv's
-        key_space = NamedKeyspace(ks)
-        mv_monthly = key_space.table("monthlyhigh")
-        mv_all_time = key_space.table("alltimehigh")
-        self.assertTrue(self.check_table_size("scores", key_space, len(parameters)))
-        self.assertTrue(self.check_table_size("monthlyhigh", key_space, len(parameters)))
-        self.assertTrue(self.check_table_size("alltimehigh", key_space, len(parameters)))
-
-        filtered_mv_monthly_objects = mv_monthly.objects.filter(game='Chess', year=2015, month=6)
-        self.assertEqual(len(filtered_mv_monthly_objects), 1)
-        self.assertEqual(filtered_mv_monthly_objects[0]['score'], 3500)
-        self.assertEqual(filtered_mv_monthly_objects[0]['user'], 'jbellis')
-        filtered_mv_alltime_objects = mv_all_time.objects.filter(game='Chess')
-        self.assertEqual(len(filtered_mv_alltime_objects), 2)
-        self.assertEqual(filtered_mv_alltime_objects[0]['score'], 3500)
-
-    def check_table_size(self, table_name, key_space, expected_size):
-        table = key_space.table(table_name)
-        attempts = 0
-        while attempts < 10:
-            attempts += 1
-            table_size = len(table.objects.all())
-            if(table_size is not expected_size):
-                print("Table {0} size was {1} and was expected to be {2}".format(table_name, table_size, expected_size))
-            else:
-                return True
-
-        return False
