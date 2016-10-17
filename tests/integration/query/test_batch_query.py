@@ -154,7 +154,7 @@ class BatchQueryTests(BaseCassEngTestCase):
         self.assertEqual(
             TestMultiKeyModel.filter(partition=0).count(self.conn), 0)
         #cleanup
-        for m in TestMultiKeyModel.all(self.conn):
+        for m in TestMultiKeyModel.find_all(self.conn):
             m.delete(self.conn)
 
     @execute_count(0)

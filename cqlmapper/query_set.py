@@ -385,7 +385,7 @@ class ModelQuerySet(object):
         except StopIteration:
             return None
 
-    def all(self, conn):
+    def all(self):
         """Returns a queryset matching all rows.
 
         .. code-block:: python
@@ -393,7 +393,7 @@ class ModelQuerySet(object):
             for user in User.objects().all():
                 print(user)
         """
-        return copy.deepcopy(self).iter(conn)
+        return copy.deepcopy(self)
 
     def consistency(self, consistency):
         """Sets the consistency level for the operation.

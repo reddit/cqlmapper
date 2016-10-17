@@ -146,7 +146,7 @@ class BatchQueryTests(BaseCassEngTestCase):
             TestMultiKeyModel.filter(partition=0).count(self.conn), 0
         )
         # cleanup
-        for m in TestMultiKeyModel.all(self.conn):
+        for m in TestMultiKeyModel.iter(self.conn):
             m.delete(self.conn)
 
     def test_empty_batch(self):

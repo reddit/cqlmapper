@@ -587,12 +587,12 @@ class BaseModel(object):
         return cls.objects.create(conn, **kwargs)
 
     @classmethod
-    def all(cls, conn):
+    def all(cls):
         """Returns a queryset representing all stored objects.
 
         This is a pass-through to the model objects().all()
         """
-        return cls.objects.all(conn)
+        return cls.objects.all()
 
     @classmethod
     def filter(cls, *args, **kwargs):

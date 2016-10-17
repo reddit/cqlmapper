@@ -666,7 +666,7 @@ class TestPythonDoesntDieWhenExtraFieldIsInCassandra(BaseCassEngTestCase):
                 self.TestModel.column_family_name()
             )
         )
-        self.TestModel.objects().all(self.conn)
+        self.TestModel.objects().find_all(self.conn)
 
 
 class TestTimeUUIDFromDatetime(BaseCassEngTestCase):
