@@ -22,100 +22,114 @@ from cqlmapper import connection
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
 from cqlmapper.query import BatchQuery
+from cqlmapper.query_set import ModelQuerySet
 
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
+
 
 class TestConsistencyModel(Model):
 
-    id      = columns.UUID(primary_key=True, default=lambda:uuid4())
-    count   = columns.Integer()
-    text    = columns.Text(required=False)
+    id = columns.UUID(primary_key=True, default=uuid4)
+    count = columns.Integer()
+    text = columns.Text(required=False)
+
 
 class BaseConsistencyTest(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
         super(BaseConsistencyTest, cls).setUpClass()
-        sync_table(TestConsistencyModel)
+        sync_table(cls.connection(), TestConsistencyModel)
 
     @classmethod
     def tearDownClass(cls):
         super(BaseConsistencyTest, cls).tearDownClass()
-        drop_table(TestConsistencyModel)
+        drop_table(cls.connection(), TestConsistencyModel)
 
 
 class TestConsistency(BaseConsistencyTest):
+
     def test_create_uses_consistency(self):
 
         qs = TestConsistencyModel.consistency(CL.ALL)
-        with mock.patch.object(self.session, 'execute') as m:
-            qs.create(text="i am not fault tolerant this way")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            qs.create(self.conn, text="i am not fault tolerant this way")
 
         args = m.call_args
         self.assertEqual(CL.ALL, args[0][0].consistency_level)
 
     def test_queryset_is_returned_on_create(self):
         qs = TestConsistencyModel.consistency(CL.ALL)
-        self.assertTrue(isinstance(qs, TestConsistencyModel.__queryset__), type(qs))
+        self.assertTrue(
+            isinstance(qs, ModelQuerySet), type(qs)
+        )
 
     def test_update_uses_consistency(self):
-        t = TestConsistencyModel.create(text="bacon and eggs")
+        t = TestConsistencyModel.create(self.conn, text="bacon and eggs")
         t.text = "ham sandwich"
 
-        with mock.patch.object(self.session, 'execute') as m:
-            t.consistency(CL.ALL).save()
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            t.consistency(CL.ALL).save(self.conn)
 
         args = m.call_args
         self.assertEqual(CL.ALL, args[0][0].consistency_level)
 
     def test_batch_consistency(self):
 
-        with mock.patch.object(self.session, 'execute') as m:
-            with BatchQuery(consistency=CL.ALL) as b:
-                TestConsistencyModel.batch(b).create(text="monkey")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            b = BatchQuery(consistency=CL.ALL)
+            TestConsistencyModel.batch(b).create(self.conn, text="monkey")
+            self.conn.execute_query(b)
 
         args = m.call_args
 
         self.assertEqual(CL.ALL, args[0][0].consistency_level)
 
-        with mock.patch.object(self.session, 'execute') as m:
-            with BatchQuery() as b:
-                TestConsistencyModel.batch(b).create(text="monkey")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            b = BatchQuery()
+            TestConsistencyModel.batch(b).create(self.conn, text="monkey")
+            self.conn.execute_query(b)
 
         args = m.call_args
         self.assertNotEqual(CL.ALL, args[0][0].consistency_level)
 
     def test_blind_update(self):
-        t = TestConsistencyModel.create(text="bacon and eggs")
+        t = TestConsistencyModel.create(self.conn, text="bacon and eggs")
         t.text = "ham sandwich"
         uid = t.id
 
-        with mock.patch.object(self.session, 'execute') as m:
-            TestConsistencyModel.objects(id=uid).consistency(CL.ALL).update(text="grilled cheese")
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            TestConsistencyModel.objects(
+                id=uid
+            ).consistency(
+                CL.ALL
+            ).update(self.conn, text="grilled cheese")
 
         args = m.call_args
         self.assertEqual(CL.ALL, args[0][0].consistency_level)
 
     def test_delete(self):
         # ensures we always carry consistency through on delete statements
-        t = TestConsistencyModel.create(text="bacon and eggs")
+        t = TestConsistencyModel.create(self.conn, text="bacon and eggs")
         t.text = "ham and cheese sandwich"
         uid = t.id
 
-        with mock.patch.object(self.session, 'execute') as m:
-            t.consistency(CL.ALL).delete()
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            t.consistency(CL.ALL).delete(self.conn)
 
-        with mock.patch.object(self.session, 'execute') as m:
-            TestConsistencyModel.objects(id=uid).consistency(CL.ALL).delete()
+        with mock.patch.object(self.conn.session, 'execute') as m:
+            TestConsistencyModel.objects(
+                id=uid
+            ).consistency(CL.ALL).delete(self.conn)
 
         args = m.call_args
         self.assertEqual(CL.ALL, args[0][0].consistency_level)
 
     def test_default_consistency(self):
         # verify global assumed default
-        self.assertEqual(Session._default_consistency_level, ConsistencyLevel.LOCAL_ONE)
+        self.assertEqual(Session.default_consistency_level, ConsistencyLevel.LOCAL_ONE)
 
         # verify that this session default is set according to connection.setup
         # assumes tests/cqlengine/__init__ setup uses CL.ONE
-        session = connection.get_session()
+        session = self.conn.session
         self.assertEqual(session.default_consistency_level, ConsistencyLevel.ONE)

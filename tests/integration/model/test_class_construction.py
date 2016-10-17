@@ -16,10 +16,16 @@ from uuid import uuid4
 import warnings
 
 from cqlmapper import columns, CQLEngineException
-from cqlmapper.models import Model, ModelException, ModelDefinitionException, ColumnQueryEvaluator
-from cqlmapper.query import ModelQuerySet, DMLQuery
+from cqlmapper.models import (
+    Model,
+    ModelException,
+    ModelDefinitionException,
+    ColumnQueryEvaluator,
+)
+from cqlmapper.query import DMLQuery
+from cqlmapper.query_set import ModelQuerySet
 
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestModelClassFunction(BaseCassEngTestCase):
@@ -35,7 +41,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
 
         class TestModel(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
             text = columns.Text()
 
         # check class attibutes
@@ -78,7 +84,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """
         class WildDBNames(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
             content = columns.Text(db_field='words_and_whatnot')
             numbers = columns.Integer(db_field='integers_etc')
 
@@ -98,17 +104,21 @@ class TestModelClassFunction(BaseCassEngTestCase):
 
     def test_column_ordering_is_preserved(self):
         """
-        Tests that the _columns dics retains the ordering of the class definition
+        Tests that the _columns dics retains the ordering of the class
+        definition
         """
 
         class Stuff(Model):
 
-            id  = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id  = columns.UUID(primary_key=True, default=uuid4)
             words = columns.Text()
             content = columns.Text()
             numbers = columns.Integer()
 
-        self.assertEqual([x for x in Stuff._columns.keys()], ['id', 'words', 'content', 'numbers'])
+        self.assertEqual(
+            [x for x in Stuff._columns.keys()],
+            ['id', 'words', 'content', 'numbers'],
+        )
 
     def test_exception_raised_when_creating_class_without_pk(self):
         with self.assertRaises(ModelDefinitionException):
@@ -123,7 +133,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """
         class Stuff(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
             num = columns.Integer()
 
         inst1 = Stuff(num=5)
@@ -139,7 +149,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """
         class TestModel(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
             text = columns.Text()
 
         class InheritedModel(TestModel):
@@ -152,10 +162,10 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """ Tests that auto column family name generation works as expected """
         class TestModel(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
             text = columns.Text()
 
-        assert TestModel.column_family_name(include_keyspace=False) == 'test_model'
+        assert TestModel.column_family_name() == 'test_model'
 
     def test_partition_keys(self):
         """
@@ -163,7 +173,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """
         class ModelWithPartitionKeys(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
             c1 = columns.Text(primary_key=True)
             p1 = columns.Text(partition_key=True)
             p2 = columns.Text(partition_key=True)
@@ -185,7 +195,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """ Tests that columns that can be deleted have the del attribute """
         class DelModel(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
             key = columns.Integer(primary_key=True)
             data = columns.Integer(required=False)
 
@@ -195,15 +205,18 @@ class TestModelClassFunction(BaseCassEngTestCase):
             del model.key
 
     def test_does_not_exist_exceptions_are_not_shared_between_model(self):
-        """ Tests that DoesNotExist exceptions are not the same exception between models """
+        """
+        Tests that DoesNotExist exceptions are not the same exception between
+        models
+        """
 
         class Model1(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
 
         class Model2(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
 
         try:
             raise Model1.DoesNotExist
@@ -214,10 +227,14 @@ class TestModelClassFunction(BaseCassEngTestCase):
             pass
 
     def test_does_not_exist_inherits_from_superclass(self):
-        """ Tests that a DoesNotExist exception can be caught by it's parent class DoesNotExist """
+        """
+        Tests that a DoesNotExist exception can be caught by it's parent
+        class DoesNotExist
+        """
+
         class Model1(Model):
 
-            id = columns.UUID(primary_key=True, default=lambda:uuid4())
+            id = columns.UUID(primary_key=True, default=uuid4)
 
         class Model2(Model1):
             pass
@@ -242,27 +259,23 @@ class TestModelClassFunction(BaseCassEngTestCase):
 class TestManualTableNaming(BaseCassEngTestCase):
 
     class RenamedTest(Model):
-        __keyspace__ = 'whatever'
         __table_name__ = 'manual_name'
 
         id = columns.UUID(primary_key=True)
         data = columns.Text()
 
     def test_proper_table_naming(self):
-        assert self.RenamedTest.column_family_name(include_keyspace=False) == 'manual_name'
-        assert self.RenamedTest.column_family_name(include_keyspace=True) == 'whatever.manual_name'
+        assert self.RenamedTest.column_family_name() == 'manual_name'
 
 
 class TestManualTableNamingCaseSensitive(BaseCassEngTestCase):
 
     class RenamedCaseInsensitiveTest(Model):
-        __keyspace__ = 'whatever'
         __table_name__ = 'Manual_Name'
 
         id = columns.UUID(primary_key=True)
 
     class RenamedCaseSensitiveTest(Model):
-        __keyspace__ = 'whatever'
         __table_name__ = 'Manual_Name'
         __table_name_case_sensitive__ = True
 
@@ -278,8 +291,10 @@ class TestManualTableNamingCaseSensitive(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        self.assertEqual(self.RenamedCaseInsensitiveTest.column_family_name(include_keyspace=False), 'manual_name')
-        self.assertEqual(self.RenamedCaseInsensitiveTest.column_family_name(include_keyspace=True), 'whatever.manual_name')
+        self.assertEqual(
+            self.RenamedCaseInsensitiveTest.column_family_name(),
+            'manual_name'
+        )
 
     def test_proper_table_naming_case_sensitive(self):
         """
@@ -292,8 +307,10 @@ class TestManualTableNamingCaseSensitive(BaseCassEngTestCase):
         @test_category object_mapper
         """
 
-        self.assertEqual(self.RenamedCaseSensitiveTest.column_family_name(include_keyspace=False), '"Manual_Name"')
-        self.assertEqual(self.RenamedCaseSensitiveTest.column_family_name(include_keyspace=True), 'whatever."Manual_Name"')
+        self.assertEqual(
+            self.RenamedCaseSensitiveTest.column_family_name(),
+            '"Manual_Name"',
+        )
 
 
 class AbstractModel(Model):
@@ -325,7 +342,10 @@ class AbstractModelWithFullCols(Model):
 class TestAbstractModelClasses(BaseCassEngTestCase):
 
     def test_id_field_is_not_created(self):
-        """ Tests that an id field is not automatically generated on abstract classes """
+        """
+        Tests that an id field is not automatically generated on abstract
+        classes
+        """
         assert not hasattr(AbstractModel, 'id')
         assert not hasattr(AbstractModelWithCol, 'id')
 
@@ -340,78 +360,48 @@ class TestAbstractModelClasses(BaseCassEngTestCase):
     def test_attempting_to_save_abstract_model_fails(self):
         """ Attempting to save a model from an abstract model should fail """
         with self.assertRaises(CQLEngineException):
-            AbstractModelWithFullCols.create(pkey=1, data=2)
+            AbstractModelWithFullCols.create(self.conn, pkey=1, data=2)
 
     def test_attempting_to_create_abstract_table_fails(self):
         """ Attempting to create a table from an abstract model should fail """
         from cqlmapper.management import sync_table
         with self.assertRaises(CQLEngineException):
-            sync_table(AbstractModelWithFullCols)
+            sync_table(self.conn, AbstractModelWithFullCols)
 
     def test_attempting_query_on_abstract_model_fails(self):
         """ Tests attempting to execute query with an abstract model fails """
         with self.assertRaises(CQLEngineException):
-            iter(AbstractModelWithFullCols.objects(pkey=5)).next()
+            iter(AbstractModelWithFullCols.objects(pkey=5)).next(self.conn)
 
     def test_abstract_columns_are_inherited(self):
-        """ Tests that columns defined in the abstract class are inherited into the concrete class """
+        """
+        Tests that columns defined in the abstract class are inherited
+        into the concrete class
+        """
         assert hasattr(ConcreteModelWithCol, 'pkey')
         assert isinstance(ConcreteModelWithCol.pkey, ColumnQueryEvaluator)
-        assert isinstance(ConcreteModelWithCol._columns['pkey'], columns.Column)
+        assert isinstance(
+            ConcreteModelWithCol._columns['pkey'],
+            columns.Column,
+        )
 
     def test_concrete_class_table_creation_cycle(self):
         """ Tests that models with inherited abstract classes can be created, and have io performed """
         from cqlmapper.management import sync_table, drop_table
-        sync_table(ConcreteModelWithCol)
+        sync_table(self.conn, ConcreteModelWithCol)
 
-        w1 = ConcreteModelWithCol.create(pkey=5, data=6)
-        w2 = ConcreteModelWithCol.create(pkey=6, data=7)
+        w1 = ConcreteModelWithCol.create(self.conn, pkey=5, data=6)
+        w2 = ConcreteModelWithCol.create(self.conn, pkey=6, data=7)
 
-        r1 = ConcreteModelWithCol.get(pkey=5)
-        r2 = ConcreteModelWithCol.get(pkey=6)
+        r1 = ConcreteModelWithCol.get(self.conn, pkey=5)
+        r2 = ConcreteModelWithCol.get(self.conn, pkey=6)
 
         assert w1.pkey == r1.pkey
         assert w1.data == r1.data
         assert w2.pkey == r2.pkey
         assert w2.data == r2.data
 
-        drop_table(ConcreteModelWithCol)
-
-
-class TestCustomQuerySet(BaseCassEngTestCase):
-    """ Tests overriding the default queryset class """
-
-    class TestException(Exception): pass
-
-    def test_overriding_queryset(self):
-
-        class QSet(ModelQuerySet):
-            def create(iself, **kwargs):
-                raise self.TestException
-
-        class CQModel(Model):
-            __queryset__ = QSet
-
-            part = columns.UUID(primary_key=True)
-            data = columns.Text()
-
-        with self.assertRaises(self.TestException):
-            CQModel.create(part=uuid4(), data='s')
-
-    def test_overriding_dmlqueryset(self):
-
-        class DMLQ(DMLQuery):
-            def save(iself):
-                raise self.TestException
-
-        class CDQModel(Model):
-
-            __dmlquery__ = DMLQ
-            part = columns.UUID(primary_key=True)
-            data = columns.Text()
-
-        with self.assertRaises(self.TestException):
-            CDQModel().save()
+        drop_table(self.conn, ConcreteModelWithCol)
 
 
 class TestCachedLengthIsNotCarriedToSubclasses(BaseCassEngTestCase):

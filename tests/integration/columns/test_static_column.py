@@ -23,12 +23,13 @@ from cqlmapper import columns
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
 
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
 from tests.integration import PROTOCOL_VERSION
 
 # TODO: is this really a protocol limitation, or is it just C* version?
 # good enough proxy for now
 STATIC_SUPPORTED = PROTOCOL_VERSION >= 2
+
 
 class TestStaticModel(Model):
     partition = columns.UUID(primary_key=True, default=uuid4)
@@ -46,49 +47,58 @@ class TestStaticColumn(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        drop_table(TestStaticModel)
+        super(TestStaticColumn, cls).setUpClass()
+        conn = cls.connection()
+        drop_table(conn, TestStaticModel)
         if STATIC_SUPPORTED:  # setup and teardown run regardless of skip
-            sync_table(TestStaticModel)
+            sync_table(conn, TestStaticModel)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(TestStaticModel)
+        super(TestStaticColumn, cls).tearDownClass()
+        drop_table(cls.connection(), TestStaticModel)
 
     def test_mixed_updates(self):
-        """ Tests that updates on both static and non-static columns work as intended """
-        instance = TestStaticModel.create()
+        """ Tests that updates on both static and non-static columns work as
+        intended """
+        instance = TestStaticModel.create(self.conn)
         instance.static = "it's shared"
         instance.text = "some text"
-        instance.save()
+        instance.save(self.conn)
 
-        u = TestStaticModel.get(partition=instance.partition)
+        u = TestStaticModel.get(self.conn, partition=instance.partition)
         u.static = "it's still shared"
         u.text = "another text"
-        u.update()
-        actual = TestStaticModel.get(partition=u.partition)
+        u.update(self.conn)
+        actual = TestStaticModel.get(self.conn, partition=u.partition)
 
         assert actual.static == "it's still shared"
 
     def test_static_only_updates(self):
         """ Tests that updates on static only column work as intended """
-        instance = TestStaticModel.create()
+        instance = TestStaticModel.create(self.conn)
         instance.static = "it's shared"
         instance.text = "some text"
-        instance.save()
+        instance.save(self.conn)
 
-        u = TestStaticModel.get(partition=instance.partition)
+        u = TestStaticModel.get(self.conn, partition=instance.partition)
         u.static = "it's still shared"
-        u.update()
-        actual = TestStaticModel.get(partition=u.partition)
+        u.update(self.conn)
+        actual = TestStaticModel.get(self.conn, partition=u.partition)
         assert actual.static == "it's still shared"
 
     def test_static_with_null_cluster_key(self):
-        """ Tests that save/update/delete works for static column works when clustering key is null"""
-        instance = TestStaticModel.create(cluster=None, static = "it's shared")
-        instance.save()
+        """ Tests that save/update/delete works for static column works when
+        clustering key is null"""
+        instance = TestStaticModel.create(
+            self.conn,
+            cluster=None,
+            static="it's shared",
+        )
+        instance.save(self.conn)
 
-        u = TestStaticModel.get(partition=instance.partition)
+        u = TestStaticModel.get(self.conn, partition=instance.partition)
         u.static = "it's still shared"
-        u.update()
-        actual = TestStaticModel.get(partition=u.partition)
+        u.update(self.conn)
+        actual = TestStaticModel.get(self.conn, partition=u.partition)
         assert actual.static == "it's still shared"

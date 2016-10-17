@@ -17,16 +17,28 @@ from mock import patch
 import six
 
 from cqlmapper import columns
-from cqlmapper.management import drop_table, sync_table, _get_table_metadata, _update_options
+from cqlmapper.management import (
+    drop_table,
+    sync_table,
+    _get_table_metadata,
+    _update_options,
+)
 from cqlmapper.models import Model
 
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
 
 
 class LeveledCompactionTestTable(Model):
 
-    __options__ = {'compaction': {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy',
-                                  'sstable_size_in_mb': '64'}}
+    __options__ = {
+        'compaction': {
+            'class': (
+                'org.apache.cassandra.db.compaction.'
+                'LeveledCompactionStrategy'
+            ),
+            'sstable_size_in_mb': '64'
+        }
+    }
 
     user_id = columns.UUID(primary_key=True)
     name = columns.Text()
@@ -35,73 +47,120 @@ class LeveledCompactionTestTable(Model):
 class AlterTableTest(BaseCassEngTestCase):
 
     def test_alter_is_called_table(self):
-        drop_table(LeveledCompactionTestTable)
-        sync_table(LeveledCompactionTestTable)
+        drop_table(self.conn, LeveledCompactionTestTable)
+        sync_table(self.conn, LeveledCompactionTestTable)
         with patch('cqlmapper.management._update_options') as mock:
-            sync_table(LeveledCompactionTestTable)
+            sync_table(self.conn, LeveledCompactionTestTable)
         assert mock.called == 1
 
     def test_compaction_not_altered_without_changes_leveled(self):
 
         class LeveledCompactionChangesDetectionTest(Model):
 
-            __options__ = {'compaction': {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy',
-                                          'sstable_size_in_mb': '160',
-                                          'tombstone_threshold': '0.125',
-                                          'tombstone_compaction_interval': '3600'}}
+            __options__ = {
+                'compaction': {
+                    'class': (
+                        'org.apache.cassandra.db.compaction.'
+                        'LeveledCompactionStrategy'
+                    ),
+                    'sstable_size_in_mb': '160',
+                    'tombstone_threshold': '0.125',
+                    'tombstone_compaction_interval': '3600',
+                },
+            }
             pk = columns.Integer(primary_key=True)
 
-        drop_table(LeveledCompactionChangesDetectionTest)
-        sync_table(LeveledCompactionChangesDetectionTest)
+        drop_table(self.conn, LeveledCompactionChangesDetectionTest)
+        sync_table(self.conn, LeveledCompactionChangesDetectionTest)
 
-        self.assertFalse(_update_options(LeveledCompactionChangesDetectionTest))
+        self.assertFalse(
+            _update_options(
+                self.conn,
+                LeveledCompactionChangesDetectionTest
+            )
+        )
 
     def test_compaction_not_altered_without_changes_sizetiered(self):
         class SizeTieredCompactionChangesDetectionTest(Model):
 
-            __options__ = {'compaction': {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
-                                          'bucket_high': '20',
-                                          'bucket_low': '10',
-                                          'max_threshold': '200',
-                                          'min_threshold': '100',
-                                          'min_sstable_size': '1000',
-                                          'tombstone_threshold': '0.125',
-                                          'tombstone_compaction_interval': '3600'}}
+            __options__ = {
+                'compaction': {
+                    'class': (
+                        'org.apache.cassandra.db.compaction.'
+                        'SizeTieredCompactionStrategy'
+                    ),
+                    'bucket_high': '20',
+                    'bucket_low': '10',
+                    'max_threshold': '200',
+                    'min_threshold': '100',
+                    'min_sstable_size': '1000',
+                    'tombstone_threshold': '0.125',
+                    'tombstone_compaction_interval': '3600',
+                },
+            }
             pk = columns.Integer(primary_key=True)
 
-        drop_table(SizeTieredCompactionChangesDetectionTest)
-        sync_table(SizeTieredCompactionChangesDetectionTest)
+        drop_table(self.conn, SizeTieredCompactionChangesDetectionTest)
+        sync_table(self.conn, SizeTieredCompactionChangesDetectionTest)
 
-        self.assertFalse(_update_options(SizeTieredCompactionChangesDetectionTest))
+        self.assertFalse(
+            _update_options(
+                self.conn,
+                SizeTieredCompactionChangesDetectionTest,
+            )
+        )
 
     def test_alter_actually_alters(self):
         tmp = copy.deepcopy(LeveledCompactionTestTable)
-        drop_table(tmp)
-        sync_table(tmp)
-        tmp.__options__ = {'compaction': {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy'}}
-        sync_table(tmp)
+        drop_table(self.conn, tmp)
+        sync_table(self.conn, tmp)
+        tmp.__options__ = {
+            'compaction': {
+                'class': (
+                    'org.apache.cassandra.db.compaction.'
+                    'SizeTieredCompactionStrategy'
+                ),
+            },
+        }
+        sync_table(self.conn, tmp)
 
-        table_meta = _get_table_metadata(tmp)
+        table_meta = _get_table_metadata(self.conn, tmp)
 
-        self.assertRegexpMatches(table_meta.export_as_string(), '.*SizeTieredCompactionStrategy.*')
+        self.assertRegexpMatches(
+            table_meta.export_as_string(),
+            '.*SizeTieredCompactionStrategy.*'
+        )
 
     def test_alter_options(self):
 
         class AlterTable(Model):
 
-            __options__ = {'compaction': {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy',
-                                          'sstable_size_in_mb': '64'}}
+            __options__ = {
+                'compaction': {
+                    'class': (
+                        'org.apache.cassandra.db.compaction.'
+                        'LeveledCompactionStrategy'
+                    ),
+                    'sstable_size_in_mb': '64',
+                },
+            }
             user_id = columns.UUID(primary_key=True)
             name = columns.Text()
 
-        drop_table(AlterTable)
-        sync_table(AlterTable)
-        table_meta = _get_table_metadata(AlterTable)
-        self.assertRegexpMatches(table_meta.export_as_string(), ".*'sstable_size_in_mb': '64'.*")
+        drop_table(self.conn, AlterTable)
+        sync_table(self.conn, AlterTable)
+        table_meta = _get_table_metadata(self.conn, AlterTable)
+        self.assertRegexpMatches(
+            table_meta.export_as_string(),
+            ".*'sstable_size_in_mb': '64'.*",
+        )
         AlterTable.__options__['compaction']['sstable_size_in_mb'] = '128'
-        sync_table(AlterTable)
-        table_meta = _get_table_metadata(AlterTable)
-        self.assertRegexpMatches(table_meta.export_as_string(), ".*'sstable_size_in_mb': '128'.*")
+        sync_table(self.conn, AlterTable)
+        table_meta = _get_table_metadata(self.conn, AlterTable)
+        self.assertRegexpMatches(
+            table_meta.export_as_string(),
+            ".*'sstable_size_in_mb': '128'.*",
+        )
 
 
 class OptionsTest(BaseCassEngTestCase):
@@ -123,33 +182,53 @@ class OptionsTest(BaseCassEngTestCase):
 
     def test_all_size_tiered_options(self):
         class AllSizeTieredOptionsModel(Model):
-            __options__ = {'compaction': {'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy',
-                                          'bucket_low': '.3',
-                                          'bucket_high': '2',
-                                          'min_threshold': '2',
-                                          'max_threshold': '64',
-                                          'tombstone_compaction_interval': '86400'}}
+            __options__ = {
+                'compaction': {
+                    'class': (
+                        'org.apache.cassandra.db.compaction.'
+                        'SizeTieredCompactionStrategy'
+                    ),
+                    'bucket_low': '.3',
+                    'bucket_high': '2',
+                    'min_threshold': '2',
+                    'max_threshold': '64',
+                    'tombstone_compaction_interval': '86400',
+                },
+            }
 
             cid = columns.UUID(primary_key=True)
             name = columns.Text()
 
-        drop_table(AllSizeTieredOptionsModel)
-        sync_table(AllSizeTieredOptionsModel)
+        drop_table(self.conn, AllSizeTieredOptionsModel)
+        sync_table(self.conn, AllSizeTieredOptionsModel)
 
-        table_meta = _get_table_metadata(AllSizeTieredOptionsModel)
-        self._verify_options(table_meta, AllSizeTieredOptionsModel.__options__)
+        table_meta = _get_table_metadata(self.conn, AllSizeTieredOptionsModel)
+        self._verify_options(
+            table_meta,
+            AllSizeTieredOptionsModel.__options__,
+        )
 
     def test_all_leveled_options(self):
 
         class AllLeveledOptionsModel(Model):
-            __options__ = {'compaction': {'class': 'org.apache.cassandra.db.compaction.LeveledCompactionStrategy',
-                                          'sstable_size_in_mb': '64'}}
+            __options__ = {
+                'compaction': {
+                    'class': (
+                        'org.apache.cassandra.db.compaction.'
+                        'LeveledCompactionStrategy'
+                    ),
+                    'sstable_size_in_mb': '64'
+                },
+            }
 
             cid = columns.UUID(primary_key=True)
             name = columns.Text()
 
-        drop_table(AllLeveledOptionsModel)
-        sync_table(AllLeveledOptionsModel)
+        drop_table(self.conn, AllLeveledOptionsModel)
+        sync_table(self.conn, AllLeveledOptionsModel)
 
-        table_meta = _get_table_metadata(AllLeveledOptionsModel)
-        self._verify_options(table_meta, AllLeveledOptionsModel.__options__)
+        table_meta = _get_table_metadata(self.conn, AllLeveledOptionsModel)
+        self._verify_options(
+            table_meta,
+            AllLeveledOptionsModel.__options__,
+        )

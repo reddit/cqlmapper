@@ -18,9 +18,8 @@ from cqlmapper import ValidationError
 from cqlmapper.models import Model
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper import columns
-from tests.integration.cqlengine import is_prepend_reversed
-from tests.integration.cqlengine.base import BaseCassEngTestCase
-from tests.integration.cqlengine import execute_count
+from tests.integration import is_prepend_reversed, execute_count
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestQueryUpdateModel(Model):
@@ -39,30 +38,45 @@ class QueryUpdateTests(BaseCassEngTestCase):
     @classmethod
     def setUpClass(cls):
         super(QueryUpdateTests, cls).setUpClass()
-        sync_table(TestQueryUpdateModel)
+        sync_table(cls.connection(), TestQueryUpdateModel)
 
     @classmethod
     def tearDownClass(cls):
         super(QueryUpdateTests, cls).tearDownClass()
-        drop_table(TestQueryUpdateModel)
+        drop_table(cls.connection(), TestQueryUpdateModel)
 
     @execute_count(8)
     def test_update_values(self):
         """ tests calling udpate on a queryset """
         partition = uuid4()
         for i in range(5):
-            TestQueryUpdateModel.create(partition=partition, cluster=i, count=i, text=str(i))
+            TestQueryUpdateModel.create(
+                self.conn,
+                partition=partition,
+                cluster=i,
+                count=i,
+                text=str(i),
+            )
 
+        q_iter = TestQueryUpdateModel.objects(
+            partition=partition
+        ).iter(self.conn)
         # sanity check
-        for i, row in enumerate(TestQueryUpdateModel.objects(partition=partition)):
+        for i, row in enumerate(q_iter):
             self.assertEqual(row.cluster, i)
             self.assertEqual(row.count, i)
             self.assertEqual(row.text, str(i))
 
         # perform update
-        TestQueryUpdateModel.objects(partition=partition, cluster=3).update(count=6)
+        TestQueryUpdateModel.objects(
+            partition=partition,
+            cluster=3,
+        ).update(self.conn, count=6)
 
-        for i, row in enumerate(TestQueryUpdateModel.objects(partition=partition)):
+        q_iter = TestQueryUpdateModel.objects(
+            partition=partition,
+        ).iter(self.conn)
+        for i, row in enumerate(q_iter):
             self.assertEqual(row.cluster, i)
             self.assertEqual(row.count, 6 if i == 3 else i)
             self.assertEqual(row.text, str(i))
@@ -72,45 +86,85 @@ class QueryUpdateTests(BaseCassEngTestCase):
         """ tests calling udpate on models with values passed in """
         partition = uuid4()
         for i in range(5):
-            TestQueryUpdateModel.create(partition=partition, cluster=i, count=i, text=str(i))
+            TestQueryUpdateModel.create(
+                self.conn,
+                partition=partition,
+                cluster=i,
+                count=i,
+                text=str(i),
+            )
 
+        q_iter = TestQueryUpdateModel.objects(
+            partition=partition,
+        ).iter(self.conn)
         # sanity check
-        for i, row in enumerate(TestQueryUpdateModel.objects(partition=partition)):
+        for i, row in enumerate(q_iter):
             self.assertEqual(row.cluster, i)
             self.assertEqual(row.count, i)
             self.assertEqual(row.text, str(i))
 
         # perform update
         with self.assertRaises(ValidationError):
-            TestQueryUpdateModel.objects(partition=partition, cluster=3).update(count='asdf')
+            TestQueryUpdateModel.objects(
+                partition=partition,
+                cluster=3,
+            ).update(self.conn, count='asdf')
 
     def test_invalid_update_kwarg(self):
-        """ tests that passing in a kwarg to the update method that isn't a column will fail """
+        """
+        tests that passing in a kwarg to the update method that isn't a
+        column will fail
+        """
         with self.assertRaises(ValidationError):
-            TestQueryUpdateModel.objects(partition=uuid4(), cluster=3).update(bacon=5000)
+            TestQueryUpdateModel.objects(
+                partition=uuid4(),
+                cluster=3,
+            ).update(self.conn, bacon=5000)
 
     def test_primary_key_update_failure(self):
-        """ tests that attempting to update the value of a primary key will fail """
+        """
+        tests that attempting to update the value of a primary key will fail
+        """
         with self.assertRaises(ValidationError):
-            TestQueryUpdateModel.objects(partition=uuid4(), cluster=3).update(cluster=5000)
+            TestQueryUpdateModel.objects(
+                partition=uuid4(),
+                cluster=3,
+            ).update(self.conn, cluster=5000)
 
     @execute_count(8)
     def test_null_update_deletes_column(self):
-        """ setting a field to null in the update should issue a delete statement """
+        """
+        setting a field to null in the update should issue a delete statement
+        """
         partition = uuid4()
         for i in range(5):
-            TestQueryUpdateModel.create(partition=partition, cluster=i, count=i, text=str(i))
+            TestQueryUpdateModel.create(
+                self.conn,
+                partition=partition,
+                cluster=i,
+                count=i,
+                text=str(i),
+            )
 
+        q_iter = TestQueryUpdateModel.objects(
+            partition=partition,
+        ).iter(self.conn)
         # sanity check
-        for i, row in enumerate(TestQueryUpdateModel.objects(partition=partition)):
+        for i, row in enumerate(q_iter):
             self.assertEqual(row.cluster, i)
             self.assertEqual(row.count, i)
             self.assertEqual(row.text, str(i))
 
         # perform update
-        TestQueryUpdateModel.objects(partition=partition, cluster=3).update(text=None)
+        TestQueryUpdateModel.objects(
+            partition=partition,
+            cluster=3,
+        ).update(self.conn, text=None)
 
-        for i, row in enumerate(TestQueryUpdateModel.objects(partition=partition)):
+        q_iter = TestQueryUpdateModel.objects(
+            partition=partition,
+        ).iter(self.conn)
+        for i, row in enumerate(q_iter):
             self.assertEqual(row.cluster, i)
             self.assertEqual(row.count, i)
             self.assertEqual(row.text, None if i == 3 else str(i))
@@ -120,18 +174,33 @@ class QueryUpdateTests(BaseCassEngTestCase):
         """ tests that updating a columns value, and removing another works properly """
         partition = uuid4()
         for i in range(5):
-            TestQueryUpdateModel.create(partition=partition, cluster=i, count=i, text=str(i))
+            TestQueryUpdateModel.create(
+                self.conn,
+                partition=partition,
+                cluster=i,
+                count=i,
+                text=str(i),
+            )
 
+        q_iter = TestQueryUpdateModel.objects(
+            partition=partition,
+        ).iter(self.conn)
         # sanity check
-        for i, row in enumerate(TestQueryUpdateModel.objects(partition=partition)):
+        for i, row in enumerate(q_iter):
             self.assertEqual(row.cluster, i)
             self.assertEqual(row.count, i)
             self.assertEqual(row.text, str(i))
 
         # perform update
-        TestQueryUpdateModel.objects(partition=partition, cluster=3).update(count=6, text=None)
+        TestQueryUpdateModel.objects(
+            partition=partition,
+            cluster=3,
+        ).update(self.conn, count=6, text=None)
 
-        for i, row in enumerate(TestQueryUpdateModel.objects(partition=partition)):
+        q_iter = TestQueryUpdateModel.objects(
+            partition=partition,
+        ).iter(self.conn)
+        for i, row in enumerate(q_iter):
             self.assertEqual(row.cluster, i)
             self.assertEqual(row.count, 6 if i == 3 else i)
             self.assertEqual(row.text, None if i == 3 else str(i))
@@ -141,10 +210,20 @@ class QueryUpdateTests(BaseCassEngTestCase):
         partition = uuid4()
         cluster = 1
         TestQueryUpdateModel.objects.create(
-                partition=partition, cluster=cluster, text_set=set(("foo",)))
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+            text_set=set(("foo",)),
+        )
         TestQueryUpdateModel.objects(
-                partition=partition, cluster=cluster).update(text_set__add=set(('bar',)))
-        obj = TestQueryUpdateModel.objects.get(partition=partition, cluster=cluster)
+            partition=partition,
+            cluster=cluster
+        ).update(self.conn, text_set__add=set(('bar',)))
+        obj = TestQueryUpdateModel.objects.get(
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+        )
         self.assertEqual(obj.text_set, set(("foo", "bar")))
 
     @execute_count(2)
@@ -154,8 +233,14 @@ class QueryUpdateTests(BaseCassEngTestCase):
         partition = uuid4()
         cluster = 1
         TestQueryUpdateModel.objects(
-                partition=partition, cluster=cluster).update(text_set__add=set(('bar',)))
-        obj = TestQueryUpdateModel.objects.get(partition=partition, cluster=cluster)
+                partition=partition,
+                cluster=cluster,
+            ).update(self.conn, text_set__add=set(('bar',)))
+        obj = TestQueryUpdateModel.objects.get(
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+        )
         self.assertEqual(obj.text_set, set(("bar",)))
 
     @execute_count(3)
@@ -163,11 +248,20 @@ class QueryUpdateTests(BaseCassEngTestCase):
         partition = uuid4()
         cluster = 1
         TestQueryUpdateModel.objects.create(
-                partition=partition, cluster=cluster, text_set=set(("foo", "baz")))
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+            text_set=set(("foo", "baz")),
+        )
         TestQueryUpdateModel.objects(
-                partition=partition, cluster=cluster).update(
-                text_set__remove=set(('foo',)))
-        obj = TestQueryUpdateModel.objects.get(partition=partition, cluster=cluster)
+            partition=partition,
+            cluster=cluster,
+        ).update(self.conn, text_set__remove=set(('foo',)))
+        obj = TestQueryUpdateModel.objects.get(
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+        )
         self.assertEqual(obj.text_set, set(("baz",)))
 
     @execute_count(3)
@@ -177,11 +271,20 @@ class QueryUpdateTests(BaseCassEngTestCase):
         partition = uuid4()
         cluster = 1
         TestQueryUpdateModel.objects.create(
-                partition=partition, cluster=cluster, text_set=set(("foo",)))
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+            text_set=set(("foo",)),
+        )
         TestQueryUpdateModel.objects(
-                partition=partition, cluster=cluster).update(
-                text_set__remove=set(('afsd',)))
-        obj = TestQueryUpdateModel.objects.get(partition=partition, cluster=cluster)
+            partition=partition,
+            cluster=cluster,
+        ).update(self.conn, text_set__remove=set(('afsd',)))
+        obj = TestQueryUpdateModel.objects.get(
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+        )
         self.assertEqual(obj.text_set, set(("foo",)))
 
     @execute_count(3)
@@ -189,11 +292,20 @@ class QueryUpdateTests(BaseCassEngTestCase):
         partition = uuid4()
         cluster = 1
         TestQueryUpdateModel.objects.create(
-                partition=partition, cluster=cluster, text_list=["foo"])
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+            text_list=["foo"],
+        )
         TestQueryUpdateModel.objects(
-                partition=partition, cluster=cluster).update(
-                text_list__append=['bar'])
-        obj = TestQueryUpdateModel.objects.get(partition=partition, cluster=cluster)
+            partition=partition,
+            cluster=cluster,
+        ).update(self.conn, text_list__append=['bar'])
+        obj = TestQueryUpdateModel.objects.get(
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+        )
         self.assertEqual(obj.text_list, ["foo", "bar"])
 
     @execute_count(3)
@@ -203,13 +315,24 @@ class QueryUpdateTests(BaseCassEngTestCase):
         cluster = 1
         original = ["foo"]
         TestQueryUpdateModel.objects.create(
-                partition=partition, cluster=cluster, text_list=original)
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+            text_list=original,
+        )
         prepended = ['bar', 'baz']
         TestQueryUpdateModel.objects(
-                partition=partition, cluster=cluster).update(
-                text_list__prepend=prepended)
-        obj = TestQueryUpdateModel.objects.get(partition=partition, cluster=cluster)
-        expected = (prepended[::-1] if is_prepend_reversed() else prepended) + original
+            partition=partition,
+            cluster=cluster,
+        ).update(self.conn, text_list__prepend=prepended)
+        obj = TestQueryUpdateModel.objects.get(
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+        )
+        expected = (
+            prepended[::-1] if is_prepend_reversed() else prepended
+        ) + original
         self.assertEqual(obj.text_list, expected)
 
     @execute_count(3)
@@ -218,12 +341,20 @@ class QueryUpdateTests(BaseCassEngTestCase):
         partition = uuid4()
         cluster = 1
         TestQueryUpdateModel.objects.create(
-                partition=partition, cluster=cluster,
-                text_map={"foo": '1', "bar": '2'})
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+            text_map={"foo": '1', "bar": '2'},
+        )
         TestQueryUpdateModel.objects(
-                partition=partition, cluster=cluster).update(
-                text_map__update={"bar": '3', "baz": '4'})
-        obj = TestQueryUpdateModel.objects.get(partition=partition, cluster=cluster)
+            partition=partition,
+            cluster=cluster,
+        ).update(self.conn, text_map__update={"bar": '3', "baz": '4'})
+        obj = TestQueryUpdateModel.objects.get(
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+        )
         self.assertEqual(obj.text_map, {"foo": '1', "bar": '3', "baz": '4'})
 
     @execute_count(3)
@@ -234,12 +365,20 @@ class QueryUpdateTests(BaseCassEngTestCase):
         partition = uuid4()
         cluster = 1
         TestQueryUpdateModel.objects.create(
-                partition=partition, cluster=cluster,
-                text_map={"foo": '1', "bar": '2'})
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+            text_map={"foo": '1', "bar": '2'},
+        )
         TestQueryUpdateModel.objects(
-                partition=partition, cluster=cluster).update(
-                text_map__update={"bar": None})
-        obj = TestQueryUpdateModel.objects.get(partition=partition, cluster=cluster)
+            partition=partition,
+            cluster=cluster,
+        ).update(self.conn, text_map__update={"bar": None})
+        obj = TestQueryUpdateModel.objects.get(
+            self.conn,
+            partition=partition,
+            cluster=cluster,
+        )
         self.assertEqual(obj.text_map, {"foo": '1'})
 
 
@@ -255,25 +394,32 @@ class StaticDeleteTests(BaseCassEngTestCase):
     @classmethod
     def setUpClass(cls):
         super(StaticDeleteTests, cls).setUpClass()
-        sync_table(StaticDeleteModel)
+        sync_table(cls.connection(), StaticDeleteModel)
 
     @classmethod
     def tearDownClass(cls):
         super(StaticDeleteTests, cls).tearDownClass()
-        drop_table(StaticDeleteModel)
+        drop_table(cls.connection(), StaticDeleteModel)
 
     def test_static_deletion(self):
         """
-        Test to ensure that cluster keys are not included when removing only static columns
+        Test to ensure that cluster keys are not included when removing only
+        static columns
 
         @since 3.6
         @jira_ticket PYTHON-608
-        @expected_result Server should not throw an exception, and the static column should be deleted
+        @expected_result Server should not throw an exception, and the static
+        olumn should be deleted
 
         @test_category object_mapper
         """
-        StaticDeleteModel.create(example_id=5, example_clust=5, example_static2=1)
-        sdm = StaticDeleteModel.filter(example_id=5).first()
+        StaticDeleteModel.create(
+            self.conn,
+            example_id=5,
+            example_clust=5,
+            example_static2=1,
+        )
+        sdm = StaticDeleteModel.filter(example_id=5).first(self.conn)
         self.assertEqual(1, sdm.example_static2)
-        sdm.update(example_static2=None)
+        sdm.update(self.conn, example_static2=None)
         self.assertIsNone(sdm.example_static2)

@@ -14,6 +14,7 @@
 
 import logging
 import os
+import platform
 import sys
 import time
 import traceback
@@ -36,7 +37,6 @@ from cassandra import (
     AlreadyExists
 )
 from cassandra.cluster import Cluster
-from cassandra.protocol import ConfigurationException
 from cassandra.policies import RoundRobinPolicy
 
 from cqlmapper import connection
@@ -46,32 +46,22 @@ from cqlmapper.management import (
 )
 import cassandra
 
-try:
-    from ccmlib.cluster import Cluster as CCMCluster
-    from ccmlib.dse_cluster import DseCluster
-    from ccmlib.cluster_factory import ClusterFactory as CCMClusterFactory
-    from ccmlib import common
-except ImportError as e:
-    CCMClusterFactory = None
 
 _connections = {}
 
 DEFAULT_KEYSPACE = 'cqlengine_test'
-SINGLE_NODE_CLUSTER_NAME = 'single_node'
-CASSANDRA_VERSION = "2.2.7"
 CQL_SKIP_EXECUTE = bool(os.getenv('CQL_SKIP_EXECUTE', False))
-CCM_CLUSTER = None
-CCM_KWARGS = {}
-CCM_KWARGS['version'] = CASSANDRA_VERSION
+CASSANDRA_VERSION = "2.2.7"
 PROTOCOL_VERSION = 4
-
-path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'ccm')
-if not os.path.exists(path):
-    os.mkdir(path)
 
 cass_version = None
 cql_version = None
 log = logging.getLogger(__name__)
+
+pypy = unittest.skipUnless(
+    platform.python_implementation() == "PyPy",
+    "Test is skipped unless it's on PyPy",
+)
 
 
 def get_server_versions():
@@ -153,43 +143,78 @@ class StatementCounter(object):
         return self.counter
 
 
-# def execute_count(expected):
-#     """
-#     A decorator used wrap cqlmapper.connection.execute. It counts
-#     the number of times this method is invoked then compares it to the number
-#     expected. If they don't match it throws an assertion error. This function
-#     can be disabled by running the test harness with the env variable
-#     CQL_SKIP_EXECUTE=1 set
-#     """
-#     def innerCounter(fn):
-#         def wrapped_function(*args, **kwargs):
-#             # Create a counter monkey patch into cqlmapper.connection.execute
-#             count = StatementCounter(cqlmapper.connection.execute)
-#             original_function = cqlmapper.connection.execute
-#             # Monkey patch in our StatementCounter wrapper
-#             cqlmapper.connection.execute = count.wrapped_execute
-#             # Invoked the underlying unit test
-#             to_return = fn(*args, **kwargs)
-#             # Get the count from our monkey patched counter
-#             count.get_counter()
-#             # DeMonkey Patch our code
-#             cqlmapper.connection.execute = original_function
-#             # Check to see if we have a pre-existing test case to work from.
-#             if len(args) is 0:
-#                 test_case = unittest.TestCase("__init__")
-#             else:
-#                 test_case = args[0]
-#             # Check to see if the count is what you expect
-#             test_case.assertEqual(count.get_counter(), expected, msg="Expected number of cqlmapper.connection.execute calls ({0}) doesn't match actual number invoked ({1})".format(expected, count.get_counter()))
-#             return to_return
-#         # Name of the wrapped function must match the original or unittest will error out.
-#         wrapped_function.__name__ = fn.__name__
-#         wrapped_function.__doc__ = fn.__doc__
-#         # Escape hatch
-#         if(CQL_SKIP_EXECUTE):
-#             return fn
-#         else:
-#             return wrapped_function
+class MockLoggingHandler(logging.Handler):
+    """Mock logging handler to check for expected logs."""
 
-#     return innerCounter
+    def __init__(self, *args, **kwargs):
+        self.reset()
+        logging.Handler.__init__(self, *args, **kwargs)
+
+    def emit(self, record):
+        self.messages[record.levelname.lower()].append(record.getMessage())
+
+    def reset(self):
+        self.messages = {
+            'debug': [],
+            'info': [],
+            'warning': [],
+            'error': [],
+            'critical': [],
+        }
+
+    def get_message_count(self, level, sub_string):
+        count = 0
+        for msg in self.messages.get(level):
+            if sub_string in msg:
+                count+=1
+        return count
+
+
+def execute_count(expected):
+    """
+    A decorator used wrap cqlmapper.connection.execute. It counts
+    the number of times this method is invoked then compares it to the number
+    expected. If they don't match it throws an assertion error. This function
+    can be disabled by running the test harness with the env variable
+    CQL_SKIP_EXECUTE=1 set
+    """
+    def innerCounter(fn):
+        def wrapped_function(*args, **kwargs):
+            self = args[0]
+            # Create a counter monkey patch into cqlmapper.connection.execute
+            count = StatementCounter(self.conn.execute)
+            original_function = self.conn.execute
+            # Monkey patch in our StatementCounter wrapper
+            self.conn.execute = count.wrapped_execute
+            try:
+                # Invoked the underlying unit test
+                to_return = fn(*args, **kwargs)
+                # Get the count from our monkey patched counter
+                count.get_counter()
+            finally:
+                # DeMonkey Patch our code
+                self.conn.execute = original_function
+            # Check to see if the count is what you expect
+            self.assertEqual(
+                count.get_counter(),
+                expected,
+                msg=(
+                    "Expected number of self.conn.execute calls ({0}) "
+                    "doesn't match actual number invoked ({1})".format(
+                        expected,
+                        count.get_counter(),
+                    )
+                ),
+            )
+            return to_return
+        # Name of the wrapped function must match the original or unittest will error out.
+        wrapped_function.__name__ = fn.__name__
+        wrapped_function.__doc__ = fn.__doc__
+        # Escape hatch
+        if(CQL_SKIP_EXECUTE):
+            return fn
+        else:
+            return wrapped_function
+
+    return innerCounter
 

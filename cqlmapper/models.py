@@ -587,12 +587,12 @@ class BaseModel(object):
         return cls.objects.create(conn, **kwargs)
 
     @classmethod
-    def all(cls, conn):
+    def all(cls):
         """Returns a queryset representing all stored objects.
 
         This is a pass-through to the model objects().all()
         """
-        return cls.objects.all(conn)
+        return cls.objects.all()
 
     @classmethod
     def filter(cls, *args, **kwargs):
@@ -622,7 +622,6 @@ class BaseModel(object):
         return self
 
     def _execute_query(self, conn, q):
-        assert q.statement is not None
         if self._batch:
             ret = self._batch.add(q.statement)
             if q.cleanup_statement:
@@ -644,7 +643,7 @@ class BaseModel(object):
             person.save()
         """
 
-        if self._can_update():
+        if self._can_update() or self._has_counter:
             return self.update(conn)
 
         self.validate()

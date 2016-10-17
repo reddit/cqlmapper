@@ -29,7 +29,7 @@ from cqlmapper.models import Model
 from cassandra.util import Date, Time
 
 from tests.integration import PROTOCOL_VERSION
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
 
 
 class BaseColumnIOTest(BaseCassEngTestCase):
@@ -65,7 +65,7 @@ class BaseColumnIOTest(BaseCassEngTestCase):
             data = cls.column()
 
         cls._generated_model = IOTestModel
-        sync_table(cls._generated_model)
+        sync_table(cls.connection(), cls._generated_model)
 
         # tupleify the tested values
         if not isinstance(cls.pkey_val, tuple):
@@ -78,7 +78,7 @@ class BaseColumnIOTest(BaseCassEngTestCase):
         super(BaseColumnIOTest, cls).tearDownClass()
         if not cls.column:
             return
-        drop_table(cls._generated_model)
+        drop_table(cls.connection(), cls._generated_model)
 
     def comparator_converter(self, val):
         """ If you want to convert the original value used to compare the model vales """
@@ -90,15 +90,15 @@ class BaseColumnIOTest(BaseCassEngTestCase):
             return
         for pkey, data in zip(self.pkey_val, self.data_val):
             # create
-            m1 = self._generated_model.create(pkey=pkey, data=data)
+            m1 = self._generated_model.create(self.conn, pkey=pkey, data=data)
 
             # get
-            m2 = self._generated_model.get(pkey=pkey)
+            m2 = self._generated_model.get(self.conn, pkey=pkey)
             assert m1.pkey == m2.pkey == self.comparator_converter(pkey), self.column
             assert m1.data == m2.data == self.comparator_converter(data), self.column
 
             # delete
-            self._generated_model.filter(pkey=pkey).delete()
+            self._generated_model.filter(pkey=pkey).delete(self.conn)
 
 
 class TestBlobIO(BaseColumnIOTest):
@@ -217,7 +217,10 @@ class TestDate(ProtocolV4Test):
 
     def setUp(self):
         if PROTOCOL_VERSION < 4:
-            raise unittest.SkipTest("Protocol v4 datatypes require native protocol 4+, currently using: {0}".format(PROTOCOL_VERSION))
+            raise unittest.SkipTest(
+                "Protocol v4 datatypes require native protocol 4+, "
+                "currently using: {0}".format(PROTOCOL_VERSION)
+            )
 
         super(TestDate, self).setUp()
 
@@ -232,7 +235,10 @@ class TestTime(ProtocolV4Test):
 
     def setUp(self):
         if PROTOCOL_VERSION < 4:
-            raise unittest.SkipTest("Protocol v4 datatypes require native protocol 4+, currently using: {0}".format(PROTOCOL_VERSION))
+            raise unittest.SkipTest(
+                "Protocol v4 datatypes require native protocol 4+, "
+                "currently using: {0}".format(PROTOCOL_VERSION)
+            )
 
         super(TestTime, self).setUp()
 
@@ -246,7 +252,10 @@ class TestSmallInt(ProtocolV4Test):
 
     def setUp(self):
         if PROTOCOL_VERSION < 4:
-            raise unittest.SkipTest("Protocol v4 datatypes require native protocol 4+, currently using: {0}".format(PROTOCOL_VERSION))
+            raise unittest.SkipTest(
+                "Protocol v4 datatypes require native protocol 4+, "
+                "currently using: {0}".format(PROTOCOL_VERSION)
+            )
 
         super(TestSmallInt, self).setUp()
 
@@ -260,7 +269,10 @@ class TestTinyInt(ProtocolV4Test):
 
     def setUp(self):
         if PROTOCOL_VERSION < 4:
-            raise unittest.SkipTest("Protocol v4 datatypes require native protocol 4+, currently using: {0}".format(PROTOCOL_VERSION))
+            raise unittest.SkipTest(
+                "Protocol v4 datatypes require native protocol 4+, "
+                "currently using: {0}".format(PROTOCOL_VERSION)
+            )
 
         super(TestTinyInt, self).setUp()
 

@@ -23,25 +23,26 @@ from decimal import Decimal as D
 from uuid import uuid4, uuid1
 
 from cassandra import InvalidRequest
-from cqlmapper.columns import TimeUUID
-from cqlmapper.columns import Ascii
-from cqlmapper.columns import Text
-from cqlmapper.columns import Integer
-from cqlmapper.columns import BigInt
-from cqlmapper.columns import VarInt
-from cqlmapper.columns import DateTime
-from cqlmapper.columns import Date
-from cqlmapper.columns import UUID
-from cqlmapper.columns import Boolean
-from cqlmapper.columns import Decimal
-from cqlmapper.columns import Inet
-from cqlmapper.connection import execute
+from cqlmapper.columns import (
+    TimeUUID,
+    Ascii,
+    Text,
+    Integer,
+    BigInt,
+    VarInt,
+    DateTime,
+    Date,
+    UUID,
+    Boolean,
+    Decimal,
+    Inet,
+)
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model, ValidationError
 from cassandra import util
 
 from tests.integration import PROTOCOL_VERSION
-from tests.integration.cqlengine.base import BaseCassEngTestCase
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestDatetime(BaseCassEngTestCase):
@@ -52,16 +53,18 @@ class TestDatetime(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        sync_table(cls.DatetimeTest)
+        super(TestDatetime, cls).setUpClass()
+        sync_table(cls.connection(), cls.DatetimeTest)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(cls.DatetimeTest)
+        super(TestDatetime, cls).tearDownClass()
+        drop_table(cls.connection(), cls.DatetimeTest)
 
     def test_datetime_io(self):
         now = datetime.now()
-        self.DatetimeTest.objects.create(test_id=0, created_at=now)
-        dt2 = self.DatetimeTest.objects(test_id=0).first()
+        self.DatetimeTest.objects.create(self.conn, test_id=0, created_at=now)
+        dt2 = self.DatetimeTest.objects(test_id=0).first(self.conn)
         assert dt2.created_at.timetuple()[:6] == now.timetuple()[:6]
 
     def test_datetime_tzinfo_io(self):
@@ -72,50 +75,77 @@ class TestDatetime(BaseCassEngTestCase):
                 return None
 
         now = datetime(1982, 1, 1, tzinfo=TZ())
-        dt = self.DatetimeTest.objects.create(test_id=1, created_at=now)
-        dt2 = self.DatetimeTest.objects(test_id=1).first()
+        dt = self.DatetimeTest.objects.create(
+            self.conn,
+            test_id=1,
+            created_at=now,
+        )
+        dt2 = self.DatetimeTest.objects(test_id=1).first(self.conn)
         assert dt2.created_at.timetuple()[:6] == (now + timedelta(hours=1)).timetuple()[:6]
 
     def test_datetime_date_support(self):
         today = date.today()
-        self.DatetimeTest.objects.create(test_id=2, created_at=today)
-        dt2 = self.DatetimeTest.objects(test_id=2).first()
+        self.DatetimeTest.objects.create(
+            self.conn,
+            test_id=2,
+            created_at=today,
+        )
+        dt2 = self.DatetimeTest.objects(test_id=2).first(self.conn)
         assert dt2.created_at.isoformat() == datetime(today.year, today.month, today.day).isoformat()
 
     def test_datetime_none(self):
-        dt = self.DatetimeTest.objects.create(test_id=3, created_at=None)
-        dt2 = self.DatetimeTest.objects(test_id=3).first()
+        dt = self.DatetimeTest.objects.create(
+            self.conn,
+            test_id=3,
+            created_at=None,
+        )
+        dt2 = self.DatetimeTest.objects(test_id=3).first(self.conn)
         assert dt2.created_at is None
 
-        dts = self.DatetimeTest.objects.filter(test_id=3).values_list('created_at')
-        assert dts[0][0] is None
+        dts = self.DatetimeTest.objects.filter(
+            test_id=3
+        ).values_list('created_at')
+        assert dts.find_all(self.conn)[0][0] is None
 
     def test_datetime_invalid(self):
-        dt_value= 'INVALID'
+        dt_value = 'INVALID'
         with self.assertRaises(TypeError):
-            self.DatetimeTest.objects.create(test_id=4, created_at=dt_value)
+            self.DatetimeTest.objects.create(
+                self.conn,
+                test_id=4,
+                created_at=dt_value,
+            )
 
     def test_datetime_timestamp(self):
         dt_value = 1454520554
-        self.DatetimeTest.objects.create(test_id=5, created_at=dt_value)
-        dt2 = self.DatetimeTest.objects(test_id=5).first()
+        self.DatetimeTest.objects.create(
+            self.conn,
+            test_id=5,
+            created_at=dt_value,
+        )
+        dt2 = self.DatetimeTest.objects(test_id=5).first(self.conn)
         assert dt2.created_at == datetime.utcfromtimestamp(dt_value)
 
     def test_datetime_large(self):
         dt_value = datetime(2038, 12, 31, 10, 10, 10, 123000)
-        self.DatetimeTest.objects.create(test_id=6, created_at=dt_value)
-        dt2 = self.DatetimeTest.objects(test_id=6).first()
+        self.DatetimeTest.objects.create(
+            self.conn,
+            test_id=6,
+            created_at=dt_value,
+        )
+        dt2 = self.DatetimeTest.objects(test_id=6).first(self.conn)
         assert dt2.created_at == dt_value
 
     def test_datetime_truncate_microseconds(self):
         """
         Test to ensure that truncate microseconds works as expected.
-        This will be default behavior in the future and we will need to modify the tests to comply
-        with new behavior
+        This will be default behavior in the future and we will need to modify
+        the tests to comply with new behavior
 
         @since 3.2
         @jira_ticket PYTHON-273
-        @expected_result microseconds should be to the nearest thousand when truncate is set.
+        @expected_result microseconds should be to the nearest thousand when
+        truncate is set.
 
         @test_category object_mapper
         """
@@ -123,8 +153,12 @@ class TestDatetime(BaseCassEngTestCase):
         try:
             dt_value = datetime(2024, 12, 31, 10, 10, 10, 923567)
             dt_truncated = datetime(2024, 12, 31, 10, 10, 10, 923000)
-            self.DatetimeTest.objects.create(test_id=6, created_at=dt_value)
-            dt2 = self.DatetimeTest.objects(test_id=6).first()
+            self.DatetimeTest.objects.create(
+                self.conn,
+                test_id=6,
+                created_at=dt_value,
+            )
+            dt2 = self.DatetimeTest.objects(test_id=6).first(self.conn)
             self.assertEqual(dt2.created_at,dt_truncated)
         finally:
             # We need to always return behavior to default
@@ -139,12 +173,13 @@ class TestBoolDefault(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        sync_table(cls.BoolDefaultValueTest)
+        super(TestBoolDefault, cls).setUpClass()
+        sync_table(cls.connection(), cls.BoolDefaultValueTest)
 
     def test_default_is_set(self):
-        tmp = self.BoolDefaultValueTest.create(test_id=1)
+        tmp = self.BoolDefaultValueTest.create(self.conn, test_id=1)
         self.assertEqual(True, tmp.stuff)
-        tmp2 = self.BoolDefaultValueTest.get(test_id=1)
+        tmp2 = self.BoolDefaultValueTest.get(self.conn, test_id=1)
         self.assertEqual(True, tmp2.stuff)
 
 
@@ -156,7 +191,8 @@ class TestBoolValidation(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        sync_table(cls.BoolValidationTest)
+        super(TestBoolValidation, cls).setUpClass()
+        sync_table(cls.connection(), cls.BoolValidationTest)
 
     def test_validation_preserves_none(self):
         test_obj = self.BoolValidationTest(test_id=1)
@@ -173,18 +209,24 @@ class TestVarInt(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        sync_table(cls.VarIntTest)
+        super(TestVarInt, cls).setUpClass()
+        sync_table(cls.connection(), cls.VarIntTest)
 
     @classmethod
     def tearDownClass(cls):
-        sync_table(cls.VarIntTest)
+        super(TestVarInt, cls).tearDownClass()
+        sync_table(cls.connection(), cls.VarIntTest)
 
     def test_varint_io(self):
         # TODO: this is a weird test.  i changed the number from sys.maxint (which doesn't exist in python 3)
         # to the giant number below and it broken between runs.
         long_int = 92834902384092834092384028340283048239048203480234823048230482304820348239
-        int1 = self.VarIntTest.objects.create(test_id=0, bignum=long_int)
-        int2 = self.VarIntTest.objects(test_id=0).first()
+        int1 = self.VarIntTest.objects.create(
+            self.conn,
+            test_id=0,
+            bignum=long_int,
+        )
+        int2 = self.VarIntTest.objects(test_id=0).first(self.conn)
         self.assertEqual(int1.bignum, int2.bignum)
 
 
@@ -196,40 +238,46 @@ class TestDate(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
+        super(TestDate, cls).setUpClass()
         if PROTOCOL_VERSION < 4:
             return
-        sync_table(cls.DateTest)
+        sync_table(cls.connection(), cls.DateTest)
 
     @classmethod
     def tearDownClass(cls):
+        super(TestDate, cls).tearDownClass()
         if PROTOCOL_VERSION < 4:
             return
-        drop_table(cls.DateTest)
+        drop_table(cls.connection(), cls.DateTest)
 
     def setUp(self):
+        super(TestDate, self).setUp()
         if PROTOCOL_VERSION < 4:
-            raise unittest.SkipTest("Protocol v4 datatypes require native protocol 4+, currently using: {0}".format(PROTOCOL_VERSION))
+            raise unittest.SkipTest(
+                "Protocol v4 datatypes require native protocol 4+, "
+                "currently using: {0}".format(PROTOCOL_VERSION)
+            )
 
     def test_date_io(self):
         today = date.today()
-        self.DateTest.objects.create(test_id=0, created_at=today)
-        result = self.DateTest.objects(test_id=0).first()
+        self.DateTest.objects.create(self.conn, test_id=0, created_at=today)
+        result = self.DateTest.objects(test_id=0).first(self.conn)
         self.assertEqual(result.created_at, util.Date(today))
 
     def test_date_io_using_datetime(self):
         now = datetime.utcnow()
-        self.DateTest.objects.create(test_id=0, created_at=now)
-        result = self.DateTest.objects(test_id=0).first()
+        self.DateTest.objects.create(self.conn, test_id=0, created_at=now)
+        result = self.DateTest.objects(test_id=0).first(self.conn)
         self.assertIsInstance(result.created_at, util.Date)
         self.assertEqual(result.created_at, util.Date(now))
 
     def test_date_none(self):
-        self.DateTest.objects.create(test_id=1, created_at=None)
-        dt2 = self.DateTest.objects(test_id=1).first()
+        self.DateTest.objects.create(self.conn, test_id=1, created_at=None)
+        dt2 = self.DateTest.objects(test_id=1).first(self.conn)
         assert dt2.created_at is None
 
         dts = self.DateTest.objects(test_id=1).values_list('created_at')
-        assert dts[0][0] is None
+        assert dts.find_all(self.conn)[0][0] is None
 
 
 class TestDecimal(BaseCassEngTestCase):
@@ -240,19 +288,25 @@ class TestDecimal(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        sync_table(cls.DecimalTest)
+        super(TestDecimal, cls).setUpClass()
+        sync_table(cls.connection(), cls.DecimalTest)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(cls.DecimalTest)
+        super(TestDecimal, cls).tearDownClass()
+        drop_table(cls.connection(), cls.DecimalTest)
 
     def test_decimal_io(self):
-        dt = self.DecimalTest.objects.create(test_id=0, dec_val=D('0.00'))
-        dt2 = self.DecimalTest.objects(test_id=0).first()
+        dt = self.DecimalTest.objects.create(
+            self.conn,
+            test_id=0,
+            dec_val=D('0.00'),
+        )
+        dt2 = self.DecimalTest.objects(test_id=0).first(self.conn)
         assert dt2.dec_val == dt.dec_val
 
-        dt = self.DecimalTest.objects.create(test_id=0, dec_val=5)
-        dt2 = self.DecimalTest.objects(test_id=0).first()
+        dt = self.DecimalTest.objects.create(self.conn, test_id=0, dec_val=5)
+        dt2 = self.DecimalTest.objects(test_id=0).first(self.conn)
         assert dt2.dec_val == D('5')
 
 
@@ -264,29 +318,31 @@ class TestUUID(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        sync_table(cls.UUIDTest)
+        super(TestUUID, cls).setUpClass()
+        sync_table(cls.connection(), cls.UUIDTest)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(cls.UUIDTest)
+        super(TestUUID, cls).tearDownClass()
+        drop_table(cls.connection(), cls.UUIDTest)
 
     def test_uuid_str_with_dashes(self):
         a_uuid = uuid4()
-        t0 = self.UUIDTest.create(test_id=0, a_uuid=str(a_uuid))
-        t1 = self.UUIDTest.get(test_id=0)
+        t0 = self.UUIDTest.create(self.conn, test_id=0, a_uuid=str(a_uuid))
+        t1 = self.UUIDTest.get(self.conn, test_id=0)
         assert a_uuid == t1.a_uuid
 
     def test_uuid_str_no_dashes(self):
         a_uuid = uuid4()
-        t0 = self.UUIDTest.create(test_id=1, a_uuid=a_uuid.hex)
-        t1 = self.UUIDTest.get(test_id=1)
+        t0 = self.UUIDTest.create(self.conn, test_id=1, a_uuid=a_uuid.hex)
+        t1 = self.UUIDTest.get(self.conn, test_id=1)
         assert a_uuid == t1.a_uuid
 
     def test_uuid_with_upcase(self):
         a_uuid = uuid4()
         val = str(a_uuid).upper()
-        t0 = self.UUIDTest.create(test_id=0, a_uuid=val)
-        t1 = self.UUIDTest.get(test_id=0)
+        t0 = self.UUIDTest.create(self.conn, test_id=0, a_uuid=val)
+        t1 = self.UUIDTest.get(self.conn, test_id=0)
         assert a_uuid == t1.a_uuid
 
 
@@ -298,19 +354,21 @@ class TestTimeUUID(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        sync_table(cls.TimeUUIDTest)
+        super(TestTimeUUID, cls).setUpClass()
+        sync_table(cls.connection(), cls.TimeUUIDTest)
 
     @classmethod
     def tearDownClass(cls):
-        drop_table(cls.TimeUUIDTest)
+        super(TestTimeUUID, cls).tearDownClass()
+        drop_table(cls.connection(), cls.TimeUUIDTest)
 
     def test_timeuuid_io(self):
         """
         ensures that
         :return:
         """
-        t0 = self.TimeUUIDTest.create(test_id=0)
-        t1 = self.TimeUUIDTest.get(test_id=0)
+        t0 = self.TimeUUIDTest.create(self.conn, test_id=0)
+        t1 = self.TimeUUIDTest.get(self.conn, test_id=0)
 
         assert t1.timeuuid.time == t1.timeuuid.time
 
@@ -590,7 +648,7 @@ class TestExtraFieldsRaiseException(BaseCassEngTestCase):
 
     def test_extra_field(self):
         with self.assertRaises(ValidationError):
-            self.TestModel.create(bacon=5000)
+            self.TestModel.create(self.conn, bacon=5000)
 
 
 class TestPythonDoesntDieWhenExtraFieldIsInCassandra(BaseCassEngTestCase):
@@ -600,11 +658,15 @@ class TestPythonDoesntDieWhenExtraFieldIsInCassandra(BaseCassEngTestCase):
         id = UUID(primary_key=True, default=uuid4)
 
     def test_extra_field(self):
-        drop_table(self.TestModel)
-        sync_table(self.TestModel)
-        self.TestModel.create()
-        execute("ALTER TABLE {0} add blah int".format(self.TestModel.column_family_name(include_keyspace=True)))
-        self.TestModel.objects().all()
+        drop_table(self.conn, self.TestModel)
+        sync_table(self.conn, self.TestModel)
+        self.TestModel.create(self.conn)
+        self.conn.execute(
+            "ALTER TABLE {0} add blah int".format(
+                self.TestModel.column_family_name()
+            )
+        )
+        self.TestModel.objects().find_all(self.conn)
 
 
 class TestTimeUUIDFromDatetime(BaseCassEngTestCase):
@@ -630,18 +692,22 @@ class TestInet(BaseCassEngTestCase):
         address = Inet()
 
     def setUp(self):
-        drop_table(self.InetTestModel)
-        sync_table(self.InetTestModel)
+        super(TestInet, self).setUp()
+        drop_table(self.conn, self.InetTestModel)
+        sync_table(self.conn, self.InetTestModel)
 
     def test_inet_saves(self):
-        tmp = self.InetTestModel.create(address="192.168.1.1")
+        tmp = self.InetTestModel.create(self.conn, address="192.168.1.1")
 
-        m = self.InetTestModel.get(id=tmp.id)
+        m = self.InetTestModel.get(self.conn, id=tmp.id)
 
         assert m.address == "192.168.1.1"
 
     def test_non_address_fails(self):
         # TODO: presently this only tests that the server blows it up. Is there supposed to be local validation?
         with self.assertRaises(InvalidRequest):
-            self.InetTestModel.create(address="what is going on here?")
+            self.InetTestModel.create(
+                self.conn,
+                address="what is going on here?",
+            )
 

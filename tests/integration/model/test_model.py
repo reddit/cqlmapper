@@ -19,13 +19,20 @@ except ImportError:
 from mock import patch
 
 from cqlmapper import columns, CQLEngineException
-from cqlmapper.management import sync_table, drop_table, create_keyspace_simple, drop_keyspace
+from cqlmapper.management import (
+    sync_table,
+    drop_table,
+    create_keyspace_simple,
+    drop_keyspace,
+)
 from cqlmapper import models
 from cqlmapper.models import Model, ModelDefinitionException
 from uuid import uuid1
 from tests.integration import pypy
+from tests.integration.base import BaseCassEngTestCase
 
-class TestModel(unittest.TestCase):
+
+class TestModel(BaseCassEngTestCase):
     """ Tests the non-io functionality of models """
 
     def test_instance_equality(self):
@@ -60,76 +67,68 @@ class TestModel(unittest.TestCase):
         """
         Test for CQL keywords as names
 
-        test_keywords_as_names tests that CQL keywords are properly and automatically quoted in cqlengine. It creates
-        a keyspace, keyspace, which should be automatically quoted to "keyspace" in CQL. It then creates a table, table,
-        which should also be automatically quoted to "table". It then verfies that operations can be done on the
-        "keyspace"."table" which has been created. It also verifies that table alternations work and operations can be
-        performed on the altered table.
+        test_keywords_as_names tests that CQL keywords are properly and
+        automatically quoted in cqlengine. It creates a keyspace, keyspace,
+        which should be automatically quoted to "keyspace" in CQL. It then
+        creates a table, table, which should also be automatically quoted to
+        "table". It then verfies that operations can be done on the
+        "keyspace"."table" which has been created. It also verifies that table
+        alternations work and operations can be performed on the altered table.
 
         @since 2.6.0
         @jira_ticket PYTHON-244
-        @expected_result Cqlengine should quote CQL keywords properly when creating keyspaces and tables.
+        @expected_result Cqlengine should quote CQL keywords properly when
+        creating keyspaces and tables.
 
         @test_category schema:generation
         """
 
         # If the keyspace exists, it will not be re-created
-        create_keyspace_simple('keyspace', 1)
+        create_keyspace_simple(self.conn, 'keyspace', 1)
+        k_conn = self.connection('keyspace')
 
         class table(Model):
-            __keyspace__ = 'keyspace'
             select = columns.Integer(primary_key=True)
             table = columns.Text()
 
         # In case the table already exists in keyspace
-        drop_table(table)
+        drop_table(k_conn, table)
 
         # Create should work
-        sync_table(table)
+        sync_table(k_conn, table)
 
-        created = table.create(select=0, table='table')
-        selected = table.objects(select=0)[0]
+        created = table.create(k_conn, select=0, table='table')
+        selected = table.objects(select=0).first(k_conn)
         self.assertEqual(created.select, selected.select)
         self.assertEqual(created.table, selected.table)
 
         # Alter should work
         class table(Model):
-            __keyspace__ = 'keyspace'
             select = columns.Integer(primary_key=True)
             table = columns.Text()
             where = columns.Text()
 
-        sync_table(table)
+        sync_table(k_conn, table)
 
-        created = table.create(select=1, table='table')
-        selected = table.objects(select=1)[0]
+        created = table.create(k_conn, select=1, table='table')
+        selected = table.objects(select=1).first(k_conn)
         self.assertEqual(created.select, selected.select)
         self.assertEqual(created.table, selected.table)
         self.assertEqual(created.where, selected.where)
 
-        drop_keyspace('keyspace')
+        drop_keyspace(self.conn, 'keyspace')
+        del k_conn
 
     def test_column_family(self):
         class TestModel(Model):
             k = columns.Integer(primary_key=True)
 
-        # no model keyspace uses default
-        self.assertEqual(TestModel.column_family_name(), "%s.test_model" % (models.DEFAULT_KEYSPACE,))
-
-        # model keyspace overrides
-        TestModel.__keyspace__ = "my_test_keyspace"
-        self.assertEqual(TestModel.column_family_name(), "%s.test_model" % (TestModel.__keyspace__,))
-
-        # neither set should raise CQLEngineException before failing or formatting an invalid name
-        del TestModel.__keyspace__
-        with patch('cqlmapper.models.DEFAULT_KEYSPACE', None):
-            self.assertRaises(CQLEngineException, TestModel.column_family_name)
-            # .. but we can still get the bare CF name
-            self.assertEqual(TestModel.column_family_name(include_keyspace=False), "test_model")
+        self.assertEqual(TestModel.column_family_name(), "test_model")
 
     def test_column_family_case_sensitive(self):
         """
-        Test to ensure case sensitivity is honored when __table_name_case_sensitive__ flag is set
+        Test to ensure case sensitivity is honored when
+        __table_name_case_sensitive__ flag is set
 
         @since 3.1
         @jira_ticket PYTHON-337
@@ -143,22 +142,19 @@ class TestModel(unittest.TestCase):
 
             k = columns.Integer(primary_key=True)
 
-        self.assertEqual(TestModel.column_family_name(), '%s."TestModel"' % (models.DEFAULT_KEYSPACE,))
-
-        TestModel.__keyspace__ = "my_test_keyspace"
-        self.assertEqual(TestModel.column_family_name(), '%s."TestModel"' % (TestModel.__keyspace__,))
-
-        del TestModel.__keyspace__
-        with patch('cqlmapper.models.DEFAULT_KEYSPACE', None):
-            self.assertRaises(CQLEngineException, TestModel.column_family_name)
-            self.assertEqual(TestModel.column_family_name(include_keyspace=False), '"TestModel"')
+        self.assertEqual(TestModel.column_family_name(), '"TestModel"')
 
 
 class BuiltInAttributeConflictTest(unittest.TestCase):
-    """tests Model definitions that conflict with built-in attributes/methods"""
+    """
+    tests Model definitions that conflict with built-in attributes/methods
+    """
 
     def test_model_with_attribute_name_conflict(self):
-        """should raise exception when model defines column that conflicts with built-in attribute"""
+        """
+        should raise exception when model defines column that conflicts with
+        built-in attribute
+        """
         with self.assertRaises(ModelDefinitionException):
             class IllegalTimestampColumnModel(Model):
 
@@ -166,22 +162,27 @@ class BuiltInAttributeConflictTest(unittest.TestCase):
                 timestamp = columns.BigInt()
 
     def test_model_with_method_name_conflict(self):
-        """should raise exception when model defines column that conflicts with built-in method"""
+        """
+        hould raise exception when model defines column that conflicts
+        with built-in method
+        """
         with self.assertRaises(ModelDefinitionException):
             class IllegalFilterColumnModel(Model):
 
                 my_primary_key = columns.Integer(primary_key=True)
                 filter = columns.Text()
 
+
 @pypy
-class ModelOverWriteTest(unittest.TestCase):
+class ModelOverWriteTest(BaseCassEngTestCase):
 
     def test_model_over_write(self):
         """
-        Test to ensure overwriting of primary keys in model inheritance is allowed
+        Test to ensure overwriting of primary keys in model inheritance is
+        allowed
 
-        This is currently only an issue in PyPy. When PYTHON-504 is introduced this should
-        be updated error out and warn the user
+        This is currently only an issue in PyPy. When PYTHON-504 is
+        introduced this should be updated error out and warn the user
 
         @since 3.6.0
         @jira_ticket PYTHON-576
@@ -198,12 +199,12 @@ class ModelOverWriteTest(unittest.TestCase):
             value = columns.Text(required=False)
 
         # In case the table already exists in keyspace
-        drop_table(DerivedTimeModel)
+        drop_table(self.conn, DerivedTimeModel)
 
-        sync_table(DerivedTimeModel)
+        sync_table(self.conn, DerivedTimeModel)
         uuid_value = uuid1()
         uuid_value2 = uuid1()
-        DerivedTimeModel.create(uuid=uuid_value, value="first")
-        DerivedTimeModel.create(uuid=uuid_value2, value="second")
+        DerivedTimeModel.create(self.conn, uuid=uuid_value, value="first")
+        DerivedTimeModel.create(self.conn, uuid=uuid_value2, value="second")
         DerivedTimeModel.objects.filter(uuid=uuid_value)
 
