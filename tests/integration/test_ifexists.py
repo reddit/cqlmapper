@@ -20,13 +20,10 @@ import mock
 from uuid import uuid4
 
 from cqlmapper import columns, LWTException
+from cqlmapper.batch import Batch
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
-from cqlmapper.query import (
-    BatchQuery,
-    BatchType,
-    IfExistsWithCounterColumn,
-)
+from cqlmapper.query import BatchType, IfExistsWithCounterColumn
 
 from tests.integration.base import BaseCassEngTestCase
 from tests.integration import PROTOCOL_VERSION
@@ -165,16 +162,14 @@ class IfExistsUpdateTests(BaseIfExistsTest):
             text='123456789',
         )
 
-        b = BatchQuery()
-        m.text = '111111111'
-        m.batch(b).if_exists().update(self.conn)
-        self.conn.execute_query(b)
+        with Batch(self.conn) as b_conn:
+            m.text = '111111111'
+            m.if_exists().update(b_conn)
 
         with self.assertRaises(LWTException) as assertion:
-            b = BatchQuery()
-            m = TestIfExistsModel(id=uuid4(), count=42)  # Doesn't exist
-            m.batch(b).if_exists().update(self.conn)
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                m = TestIfExistsModel(id=uuid4(), count=42)  # Doesn't exist
+                m.if_exists().update(b_conn)
 
         self.assertEqual(
             assertion.exception.existing,
@@ -211,12 +206,11 @@ class IfExistsUpdateTests(BaseIfExistsTest):
             text='123456789',
         )
         with self.assertRaises(LWTException) as assertion:
-            b = BatchQuery()
-            m.text = '111111112'
-            m.batch(b).if_exists().update(self.conn)  # Does exist
-            n = TestIfExistsModel2(id=1, count=10, text="Failure")  # Doesn't exist
-            n.batch(b).if_exists().update(self.conn)
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                m.text = '111111112'
+                m.if_exists().update(b_conn)  # Does exist
+                n = TestIfExistsModel2(id=1, count=10, text="Failure")  # Doesn't exist
+                n.if_exists().update(b_conn)
 
         self.assertEqual(
             assertion.exception.existing.get('[applied]'),
@@ -292,18 +286,16 @@ class IfExistsUpdateTests(BaseIfExistsTest):
             text='123456789',
         )
 
-        b = BatchQuery()
-        m.batch(b).if_exists().delete(self.conn)
-        self.conn.execute_query(b)
+        with Batch(self.conn) as b_conn:
+            m.if_exists().delete(b_conn)
 
         q = TestIfExistsModel.objects(id=id)
         self.assertEqual(len(q.find_all(self.conn)), 0)
 
         with self.assertRaises(LWTException) as assertion:
-            b = BatchQuery()
-            m = TestIfExistsModel(id=uuid4(), count=42)  # Doesn't exist
-            m.batch(b).if_exists().delete(self.conn)
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                m = TestIfExistsModel(id=uuid4(), count=42)  # Doesn't exist
+                m.if_exists().delete(b_conn)
 
         self.assertEqual(assertion.exception.existing, {
             '[applied]': False,
@@ -333,11 +325,10 @@ class IfExistsUpdateTests(BaseIfExistsTest):
         )
 
         with self.assertRaises(LWTException) as assertion:
-            b = BatchQuery()
-            m.batch(b).if_exists().delete(self.conn)  # Does exist
-            n = TestIfExistsModel2(id=3, count=42, text='1111111')  # Doesn't exist
-            n.batch(b).if_exists().delete(self.conn)
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                m.if_exists().delete(b_conn)  # Does exist
+                n = TestIfExistsModel2(id=3, count=42, text='1111111')  # Doesn't exist
+                n.if_exists().delete(b_conn)
 
         self.assertEqual(
             assertion.exception.existing.get('[applied]'),
