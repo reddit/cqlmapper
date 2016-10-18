@@ -100,7 +100,7 @@ class Connection(ConnectionInterface):
                 query.statement
             )
             result = self.execute(
-                statement=statement,
+                statement,
                 params=params,
                 timeout=query.timeout,
                 verify_applied=query.check_applied,
@@ -111,7 +111,7 @@ class Connection(ConnectionInterface):
                 query.cleanup_statement
             )
             self.execute(
-                statement=c_statement,
+                c_statement,
                 params=c_params,
                 timeout=query.timeout,
                 verify_applied=query.check_applied,
@@ -126,7 +126,7 @@ class Connection(ConnectionInterface):
             if batch_args:
                 statement, params, consistency, timeout = batch_args
                 res = self.execute(
-                    statement=statement,
+                    statement,
                     params=params,
                     consistency_level=consistency,
                     timeout=timeout,

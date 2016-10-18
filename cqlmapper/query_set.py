@@ -24,7 +24,6 @@ from cqlmapper import (
 )
 from cqlmapper.query import (
     QueryException,
-    BatchQuery,
     IfExistsWithCounterColumn,
     IfNotExistsWithCounterColumn,
 )
@@ -91,7 +90,6 @@ class ModelQuerySet(object):
 
         self._count = None
 
-        self._batch = None
         self._ttl =  None
         self._consistency = None
         self._timestamp = None
@@ -110,16 +108,12 @@ class ModelQuerySet(object):
         return self.model.column_family_name()
 
     def _execute_statement(self, conn, statement):
-        if self._batch:
-            ret = self._batch.add(statement)
-            return ret
-        else:
-            return conn.execute(
-                statement,
-                consistency_level=self._consistency,
-                timeout=self._timeout,
-                verify_applied=self.check_applied,
-            )
+        return conn.execute(
+            statement,
+            consistency_level=self._consistency,
+            timeout=self._timeout,
+            verify_applied=self.check_applied,
+        )
 
     def __unicode__(self):
         return six.text_type(self._select_query())
@@ -135,12 +129,6 @@ class ModelQuerySet(object):
         for k, v in self.__dict__.items():
             if k in ['_con', '_cur', '_result_cache', '_result_idx', '_result_generator', '_construct_result']:  # don't clone these, which are per-request-execution
                 clone.__dict__[k] = None
-            elif k == '_batch':
-                # we need to keep the same batch instance across
-                # all queryset clones, otherwise the batched queries
-                # fly off into other batch instances which are never
-                # executed, thx @dokai
-                clone.__dict__[k] = self._batch
             elif k == '_timeout':
                 clone.__dict__[k] = self._timeout
             else:
@@ -229,11 +217,6 @@ class ModelQuerySet(object):
         )
 
     def _execute_query(self, conn):
-        if self._batch:
-            raise CQLEngineException(
-                "Only inserts, updates, and deletes are available in batch "
-                "mode"
-            )
         if self._result_cache is None:
             self._result_generator = (
                 i for i in self._execute_statement(conn, self._select_query())
@@ -364,20 +347,6 @@ class ModelQuerySet(object):
             constructor,
             self._deferred_values,
         )
-
-    def batch(self, batch_obj):
-        """Set a batch object to run the query on.
-
-        Note: running a select query with a batch object will raise an e
-            xception
-        """
-        if batch_obj is not None and not isinstance(batch_obj, BatchQuery):
-            raise CQLEngineException(
-                'batch_obj must be a BatchQuery instance or None'
-            )
-        clone = copy.deepcopy(self)
-        clone._batch = batch_obj
-        return clone
 
     def first(self, conn):
         try:
@@ -683,12 +652,6 @@ class ModelQuerySet(object):
         *Note: This function executes a SELECT COUNT() and has a performance
         cost on large datasets*
         """
-        if self._batch:
-            raise CQLEngineException(
-                "Only inserts, updates, and deletes are available in "
-                "batch mode"
-            )
-
         if self._count is None:
             query = self._select_query()
             query.count = True
@@ -832,7 +795,6 @@ class ModelQuerySet(object):
 
     def create(self, conn, **kwargs):
         return self.model(**kwargs) \
-            .batch(self._batch) \
             .ttl(self._ttl) \
             .consistency(self._consistency) \
             .if_not_exists(self._if_not_exists) \

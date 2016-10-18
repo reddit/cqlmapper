@@ -6,7 +6,13 @@ import six
 from warnings import warn
 
 from cqlmapper import TIMEOUT_NOT_SET, CQLEngineException, ConnectionInterface
-from cqlmapper.statements import BaseCQLStatement
+from cqlmapper.query import DMLQuery
+from cqlmapper.statements import (
+    BaseCQLStatement,
+    DeleteStatement,
+    UpdateStatement,
+    InsertStatement,
+)
 
 
 class Batch(ConnectionInterface):
@@ -62,11 +68,24 @@ class Batch(ConnectionInterface):
     def consistency(self, consistency):
         self.consistency = consistency
 
-    def execute(self, query):
-        if query.statement:
-            self._add_query(query.statement)
-        if query.cleanup_statement:
-            self._add_query(query.cleanup_statement)
+    def execute(self, query, *a, **kw):
+        if isinstance(query, DMLQuery):
+            if query.statement:
+                self._add_query(query.statement)
+            if query.cleanup_statement:
+                self._add_query(query.cleanup_statement)
+        elif isinstance(query, BaseCQLStatement):
+            batch_statement_types = (
+                InsertStatement,
+                UpdateStatement,
+                DeleteStatement,
+            )
+            if not isinstance(query, batch_statement_types):
+                raise CQLEngineException(
+                    "Only inserts, updates, and deletes are available in "
+                    "batch mode"
+                )
+            return self._add_query(query)
 
     def _add_query(self, query):
         if not isinstance(query, BaseCQLStatement):
@@ -157,7 +176,7 @@ class Batch(ConnectionInterface):
         if batch_args:
             statement, params, consistency, timeout = batch_args
             res = self.conn.execute(
-                statement=statement,
+                statement,
                 params=params,
                 consistency_level=consistency,
                 timeout=timeout,
