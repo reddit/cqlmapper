@@ -30,7 +30,7 @@ class TestMultiKeyModel(Model):
     text = columns.Text(required=False)
 
 
-class BatchQueryLogModel(Model):
+class BatchLogModel(Model):
 
     # simple k/v table
     k = columns.Integer(primary_key=True)
@@ -187,14 +187,14 @@ class BatchTests(BaseCassEngTestCase):
     def test_batch_execute_timeout(self):
         with mock.patch.object(self.conn.session, 'execute') as mock_execute:
             with Batch(self.conn, timeout=1) as b_conn:
-                BatchQueryLogModel.create(b_conn, k=2, v=2)
+                BatchLogModel.create(b_conn, k=2, v=2)
             self.assertEqual(mock_execute.call_args[-1]['timeout'], 1)
             self.assertEqual(mock_execute.call_count, 1)
 
     def test_batch_execute_no_timeout(self):
         with mock.patch.object(self.conn.session, 'execute') as mock_execute:
             with Batch(self.conn) as b_conn:
-                BatchQueryLogModel.create(b_conn, k=2, v=2)
+                BatchLogModel.create(b_conn, k=2, v=2)
             self.assertEqual(
                 mock_execute.call_args[-1]['timeout'],
                 TIMEOUT_NOT_SET,
