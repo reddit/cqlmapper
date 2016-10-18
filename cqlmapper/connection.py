@@ -118,40 +118,9 @@ class Connection(ConnectionInterface):
             )
         return result
 
-    def _execute_batch_query(self, batch):
-        res = None
-        has_error = False
-        try:
-            batch_args = batch.prepare()
-            if batch_args:
-                statement, params, consistency, timeout = batch_args
-                res = self.execute(
-                    statement,
-                    params=params,
-                    consistency_level=consistency,
-                    timeout=timeout,
-                    verify_applied=True,
-                )
-        except Exception as e:
-            if batch._execute_on_exception:
-                batch.cleanup()
-            raise
-        batch.cleanup()
-        return res
-
-    # def execute_query(self, query):
-    #     if isinstance(query, cqlmapper_query.BatchQuery):
-    #         return self._execute_batch_query(query)
-    #     elif isinstance(query, cqlmapper_query.DMLQuery):
-    #         return self._excecute_dml_query(query)
-    #     else:
-    #         raise ValueError("Unexpected query type %s", type(query))
-
     def execute(self, statement_or_query, params=None, consistency_level=None,
                 timeout=TIMEOUT_NOT_SET, verify_applied=False):
-        if isinstance(statement_or_query, Batch):
-            return self._execute_batch_query(statement_or_query)
-        elif isinstance(statement_or_query, DMLQuery):
+        if isinstance(statement_or_query, DMLQuery):
             return self._excecute_dml_query(statement_or_query)
         elif isinstance(statement_or_query, SimpleStatement):
             pass

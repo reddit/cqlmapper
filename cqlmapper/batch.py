@@ -29,6 +29,8 @@ class Batch(ConnectionInterface):
     def __init__(self, conn, batch_type=None, timestamp=None, consistency=None,
                  execute_on_exception=False, timeout=TIMEOUT_NOT_SET):
         """
+        :param conn: cqlmapper.connection.Connection object used to execute
+            the batched queries.
         :param batch_type: (optional) One of batch type values available
             through BatchType enum
         :type batch_type: str or None
@@ -40,7 +42,7 @@ class Batch(ConnectionInterface):
         :type consistency: The :class:`.ConsistencyLevel` to be used for the
             batch query, or None.
         :param execute_on_exception: (Defaults to False) Indicates that when
-            the BatchQuery instance is used as a context manager the queries
+            the Batch instance is used as a context manager the queries
             accumulated within the context must be executed despite
             encountering an error within the context. By default, any
             exception raised from within the context scope will cause the

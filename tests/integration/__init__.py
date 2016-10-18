@@ -182,10 +182,10 @@ def execute_count(expected):
         def wrapped_function(*args, **kwargs):
             self = args[0]
             # Create a counter monkey patch into cqlmapper.connection.execute
-            count = StatementCounter(self.conn.execute)
-            original_function = self.conn.execute
+            count = StatementCounter(self.conn.session.execute)
+            original_function = self.conn.session.execute
             # Monkey patch in our StatementCounter wrapper
-            self.conn.execute = count.wrapped_execute
+            self.conn.session.execute = count.wrapped_execute
             try:
                 # Invoked the underlying unit test
                 to_return = fn(*args, **kwargs)
@@ -193,7 +193,7 @@ def execute_count(expected):
                 count.get_counter()
             finally:
                 # DeMonkey Patch our code
-                self.conn.execute = original_function
+                self.conn.session.execute = original_function
             # Check to see if the count is what you expect
             self.assertEqual(
                 count.get_counter(),
