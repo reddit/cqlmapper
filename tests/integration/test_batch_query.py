@@ -219,25 +219,21 @@ class BatchQueryCallbacksTests(BaseCassEngTestCase):
         def my_callback(*args, **kwargs):
             call_history.append(args)
 
-        batch = Batch(self.conn)
-        batch.add_callback(my_callback)
-        self.conn.execute_query(batch)
+        b_conn = Batch(self.conn)
+        b_conn.add_callback(my_callback)
+        b_conn.execute_batch()
 
         self.assertEqual(len(call_history), 1)
 
         class SomeError(Exception):
             pass
 
-        def prepare_mock(*a, **kw):
-            raise SomeError
-
         with self.assertRaises(SomeError):
-            batch = Batch(self.conn)
-            batch.prepare = prepare_mock
-            batch.add_callback(my_callback)
-            # this error bubbling up through context manager
-            # should prevent callback runs (along with b.execute())
-            self.conn.execute_query(batch)
+            with Batch(self.conn) as b_conn:
+                b_conn.add_callback(my_callback)
+                # this error bubbling up through context manager
+                # should prevent callback runs (along with b.execute())
+                raise SomeError
 
         # still same call history. Nothing added
         self.assertEqual(len(call_history), 1)
@@ -245,10 +241,9 @@ class BatchQueryCallbacksTests(BaseCassEngTestCase):
         # but if execute ran, even with an error bubbling through
         # the callbacks also would have fired
         with self.assertRaises(SomeError):
-            batch = Batch(self.conn, execute_on_exception=True)
-            batch.prepare = prepare_mock
-            batch.add_callback(my_callback)
-            self.conn.execute_query(batch)
+            with Batch(self.conn, execute_on_exception=True) as b_conn:
+                b_conn.add_callback(my_callback)
+                raise SomeError
 
         # updated call history
         self.assertEqual(len(call_history), 2)
@@ -271,8 +266,8 @@ class BatchQueryCallbacksTests(BaseCassEngTestCase):
         with warnings.catch_warnings(record=True) as w:
             batch = Batch(self.conn)
             batch.add_callback(my_callback)
-            self.conn.execute_query(batch)
-            self.conn.execute_query(batch)
+            batch.execute_batch()
+            batch.execute_batch()
         self.assertEqual(len(w), 1)
         self.assertRegexpMatches(str(w[0].message), r"^Batch.*multiple.*")
 
