@@ -32,10 +32,11 @@ from cqlmapper import (
     statements,
     TIMEOUT_NOT_SET,
 )
+from cqlmapper.batch import Batch
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
 from cqlmapper.operators import EqualsOperator, GreaterThanOrEqualOperator
-from cqlmapper.query import QueryException, BatchQuery
+from cqlmapper.query import QueryException
 
 from tests.integration import (
     PROTOCOL_VERSION,
@@ -1548,18 +1549,6 @@ class DMLQueryTimeoutTestCase(BaseQuerySetUsage):
             self.model.timeout(None).save(self.conn)
             self.assertEqual(mock_execute.call_args[-1]['timeout'], None)
 
-    def test_timeout_then_batch(self):
-        b = query.BatchQuery()
-        m = self.model.timeout(None)
-        with self.assertRaises(AssertionError):
-            m.batch(b)
-
-    def test_batch_then_timeout(self):
-        b = query.BatchQuery()
-        m = self.model.batch(b)
-        with self.assertRaises(AssertionError):
-            m.timeout(0.5)
-
 
 class DBFieldModel(Model):
     k0 = columns.Integer(partition_key=True, db_field='a')
@@ -1707,7 +1696,8 @@ class TestModelQueryWithDBField(BaseCassEngTestCase):
     @execute_count(1)
     def test_db_field_names_used(self):
         """
-        Tests to ensure that with generated cql update statements correctly utilize the db_field values.
+        Tests to ensure that with generated cql update statements correctly
+        utilize the db_field values.
 
         @since 3.2
         @jira_ticket PYTHON-530
@@ -1718,17 +1708,17 @@ class TestModelQueryWithDBField(BaseCassEngTestCase):
 
         values = ('k0', 'k1', 'c0', 'v0', 'v1')
         # Test QuerySet Path
-        b = BatchQuery()
-        DBFieldModel.objects(k0=1).batch(b).update(
-            self.conn,
+        b_conn_1 = Batch(self.conn)
+        DBFieldModel.objects(k0=1).update(
+            b_conn_1,
             v0=0,
             v1=9,
         )
         for value in values:
-            self.assertTrue(value not in str(b.queries[0]))
+            self.assertTrue(value not in str(b_conn_1.queries[0]))
 
         # Test DML path
-        b2 = BatchQuery()
+        b_conn_2 = Batch(self.conn)
         dml_field_model = DBFieldModel.create(
             self.conn,
             k0=1,
@@ -1737,13 +1727,13 @@ class TestModelQueryWithDBField(BaseCassEngTestCase):
             v0=4,
             v1=5,
         )
-        dml_field_model.batch(b2).update(
-            self.conn,
+        dml_field_model.update(
+            b_conn_2,
             v0=0,
             v1=9,
         )
         for value in values:
-            self.assertTrue(value not in str(b2.queries[0]))
+            self.assertTrue(value not in str(b_conn_2.queries[0]))
 
 
 class TestModelSmall(Model):
@@ -1775,10 +1765,9 @@ class TestModelQueryWithFetchSize(BaseCassEngTestCase):
 
     @execute_count(9)
     def test_defaultFetchSize(self):
-        b = BatchQuery()
-        for i in range(5100):
-            TestModelSmall.batch(b).create(self.conn, test_id=i)
-        self.conn.execute_query(b)
+        with Batch(self.conn) as b_conn:
+            for i in range(5100):
+                TestModelSmall.create(b_conn, test_id=i)
         self.assertEqual(
             len(TestModelSmall.objects.fetch_size(1).find_all(self.conn)),
             5100

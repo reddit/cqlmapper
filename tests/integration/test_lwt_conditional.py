@@ -21,9 +21,9 @@ import six
 from uuid import uuid4
 
 from cqlmapper import columns, LWTException
+from cqlmapper.batch import Batch
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
-from cqlmapper.query import BatchQuery
 from cqlmapper.statements import ConditionalClause
 
 from tests.integration.base import BaseCassEngTestCase, main
@@ -122,20 +122,18 @@ class TestConditional(BaseCassEngTestCase):
     def test_batch_update_conditional(self):
         t = TestConditionalModel.create(self.conn, text='something', count=5)
         id = t.id
-        b = BatchQuery()
-        t.batch(b).iff(count=5).update(self.conn, text='something else')
-        self.conn.execute_query(b)
+        with Batch(self.conn) as b_conn:
+            t.iff(count=5).update(b_conn, text='something else')
 
         updated = TestConditionalModel.objects(id=id).first(self.conn)
         self.assertEqual(updated.text, 'something else')
 
-        b = BatchQuery()
-        updated.batch(b).iff(count=6).update(
-            self.conn,
-            text='and another thing',
-        )
         with self.assertRaises(LWTException) as assertion:
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                updated.iff(count=6).update(
+                    b_conn,
+                    text='and another thing',
+                )
 
         self.assertEqual(assertion.exception.existing, {
             'id': id,

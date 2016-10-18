@@ -12,14 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
 import logging
 import six
 
 from cassandra.query import SimpleStatement, dict_factory
 
-from cqlmapper import CQLEngineException, LWTException, TIMEOUT_NOT_SET
-import cqlmapper.query as cqlmapper_query
+from cqlmapper import (
+    ConnectionInterface,
+    CQLEngineException,
+    LWTException,
+    TIMEOUT_NOT_SET,
+)
+from cqlmapper.batch import Batch
+from cqlmapper.query import DMLQuery
 from cqlmapper.statements import BaseCQLStatement
 
 
@@ -42,7 +47,7 @@ def check_applied(result):
         raise LWTException(result[0])
 
 
-class Connection(object):
+class Connection(ConnectionInterface):
     """CQLEngine Connection"""
 
     name = None
@@ -95,7 +100,7 @@ class Connection(object):
                 query.statement
             )
             result = self.execute(
-                statement=statement,
+                statement,
                 params=params,
                 timeout=query.timeout,
                 verify_applied=query.check_applied,
@@ -106,62 +111,43 @@ class Connection(object):
                 query.cleanup_statement
             )
             self.execute(
-                statement=c_statement,
+                c_statement,
                 params=c_params,
                 timeout=query.timeout,
                 verify_applied=query.check_applied,
             )
         return result
 
-    def _execute_batch_query(self, batch):
-        res = None
-        has_error = False
-        try:
-            batch_args = batch.prepare()
-            if batch_args:
-                statement, params, consistency, timeout = batch_args
-                res = self.execute(
-                    statement=statement,
-                    params=params,
-                    consistency_level=consistency,
-                    timeout=timeout,
-                    verify_applied=True,
-                )
-        except Exception as e:
-            if batch._execute_on_exception:
-                batch.cleanup()
-            raise
-        batch.cleanup()
-        return res
-
-    def execute_query(self, query):
-        if isinstance(query, cqlmapper_query.BatchQuery):
-            return self._execute_batch_query(query)
-        elif isinstance(query, cqlmapper_query.DMLQuery):
-            return self._excecute_dml_query(query)
-        else:
-            raise ValueError("Unexpected query type %s", type(query))
-
-    def execute(self, statement, params=None, consistency_level=None,
+    def execute(self, statement_or_query, params=None, consistency_level=None,
                 timeout=TIMEOUT_NOT_SET, verify_applied=False):
-        if isinstance(statement, SimpleStatement):
+        if isinstance(statement_or_query, DMLQuery):
+            return self._excecute_dml_query(statement_or_query)
+        elif isinstance(statement_or_query, SimpleStatement):
             pass
-        elif isinstance(statement, BaseCQLStatement):
-            params = statement.get_context()
-            statement = SimpleStatement(
-                str(statement),
+        elif isinstance(statement_or_query, BaseCQLStatement):
+            params = statement_or_query.get_context()
+            statement_or_query = SimpleStatement(
+                str(statement_or_query),
                 consistency_level=consistency_level,
-                fetch_size=statement.fetch_size,
+                fetch_size=statement_or_query.fetch_size,
             )
-        elif isinstance(statement, six.string_types):
-            statement = SimpleStatement(
-                statement,
+        elif isinstance(statement_or_query, six.string_types):
+            statement_or_query = SimpleStatement(
+                statement_or_query,
                 consistency_level=consistency_level,
+            )
+        else:
+            raise ValueError(
+                "Unexpected query type %s", type(statement_or_query)
             )
 
-        log.debug(statement.query_string)
+        log.debug(statement_or_query.query_string)
 
-        result = self.session.execute(statement, params, timeout=timeout)
+        result = self.session.execute(
+            statement_or_query,
+            params,
+            timeout=timeout,
+        )
         if verify_applied:
             check_applied(result)
         return result

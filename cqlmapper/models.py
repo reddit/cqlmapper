@@ -365,7 +365,6 @@ class BaseModel(object):
         self._ttl = None
         self._timestamp = None
         self._conditional = None
-        self._batch = None
         self._timeout = TIMEOUT_NOT_SET
         self._is_persisted = False
 
@@ -616,19 +615,11 @@ class BaseModel(object):
         """Sets a timeout for use in :meth:`~.save`, :meth:`~.update`, and
         :meth:`~.delete` operations.
         """
-        assert_msg = 'Setting both timeout and batch is not supported'
-        assert self._batch is None, assert_msg
         self._timeout = timeout
         return self
 
     def _execute_query(self, conn, q):
-        if self._batch:
-            ret = self._batch.add(q.statement)
-            if q.cleanup_statement:
-                self._batch.add(q.cleanup_statement)
-            return ret
-        else:
-            return conn.execute_query(q)
+        return conn.execute(q)
 
     def save(self, conn):
         """Saves an object to the database.
@@ -737,18 +728,6 @@ class BaseModel(object):
         instantiation or save.
         """
         return [k for k, v in self._values.items() if v.changed]
-
-    @classmethod
-    def _class_batch(cls, batch):
-        return cls.objects.batch(batch)
-
-    def _inst_batch(self, batch):
-        assert_msg = 'Setting both timeout and batch is not supported'
-        assert self._timeout is TIMEOUT_NOT_SET, assert_msg
-        self._batch = batch
-        return self
-
-    batch = hybrid_classmethod(_class_batch, _inst_batch)
 
 
 class ModelMetaClass(type):

@@ -18,9 +18,10 @@ import sure
 from uuid import uuid4
 
 from cqlmapper import columns
+from cqlmapper.batch import Batch
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
-from cqlmapper.query import BatchQuery
+
 from tests.integration.base import BaseCassEngTestCase, main
 
 
@@ -41,9 +42,8 @@ class BatchTest(BaseTimestampTest):
 
     def test_batch_is_included(self):
         with mock.patch.object(self.conn.session, "execute") as m:
-            b = BatchQuery(timestamp=timedelta(seconds=30))
-            TestTimestampModel.batch(b).create(self.conn, count=1)
-            self.conn.execute_query(b)
+            with Batch(self.conn, timestamp=timedelta(seconds=30)) as b_conn:
+                TestTimestampModel.create(b_conn, count=1)
 
         "USING TIMESTAMP".should.be.within(m.call_args[0][0].query_string)
 
@@ -52,11 +52,10 @@ class CreateWithTimestampTest(BaseTimestampTest):
 
     def test_batch(self):
         with mock.patch.object(self.conn.session, "execute") as m:
-            b = BatchQuery()
-            TestTimestampModel.timestamp(
-                timedelta(seconds=10)
-            ).batch(b).create(self.conn, count=1)
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                TestTimestampModel.timestamp(
+                    timedelta(seconds=10)
+                ).create(b_conn, count=1)
 
         query = m.call_args[0][0].query_string
 
@@ -109,11 +108,10 @@ class UpdateWithTimestampTest(BaseTimestampTest):
 
     def test_instance_update_in_batch(self):
         with mock.patch.object(self.conn.session, "execute") as m:
-            b = BatchQuery()
-            self.instance.batch(b).timestamp(
-                timedelta(seconds=30)
-            ).update(self.conn, count=2)
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                self.instance.timestamp(
+                    timedelta(seconds=30)
+                ).update(b_conn, count=2)
 
         query = m.call_args[0][0].query_string
         "USING TIMESTAMP".should.be.within(query)

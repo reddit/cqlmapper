@@ -48,6 +48,12 @@ class LWTException(CQLEngineException):
         self.existing = existing
 
 
+class ConnectionInterface(object):
+
+    def execute(self, query_or_statement):
+        raise NotImplementedError
+
+
 class UnicodeMixin(object):
     if six.PY3:
         __str__ = lambda x: x.__unicode__()
