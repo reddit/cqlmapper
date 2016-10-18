@@ -27,23 +27,23 @@ class TestMultiKeyModel(Model):
     text = columns.Text(required=False)
 
 
-class BatchQueryTests(BaseCassEngTestCase):
+class BatchTests(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(BatchQueryTests, cls).setUpClass()
+        super(BatchTests, cls).setUpClass()
         conn = cls.connection()
         drop_table(conn, TestMultiKeyModel)
         sync_table(conn, TestMultiKeyModel)
 
     @classmethod
     def tearDownClass(cls):
-        super(BatchQueryTests, cls).tearDownClass()
+        super(BatchTests, cls).tearDownClass()
         conn = cls.connection()
         drop_table(conn, TestMultiKeyModel)
 
     def setUp(self):
-        super(BatchQueryTests, self).setUp()
+        super(BatchTests, self).setUp()
         self.pkey = 1
 
         def clean_up():
@@ -170,7 +170,7 @@ class BatchQueryTests(BaseCassEngTestCase):
         b.execute_batch()
 
 
-class BatchQueryCallbacksTests(BaseCassEngTestCase):
+class BatchCallbacksTests(BaseCassEngTestCase):
 
     def test_API_managing_callbacks(self):
 
