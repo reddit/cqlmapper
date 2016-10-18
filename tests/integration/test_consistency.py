@@ -21,7 +21,7 @@ from cqlmapper import columns
 from cqlmapper import connection
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
-from cqlmapper.query import BatchQuery
+from cqlmapper.batch import Batch
 from cqlmapper.query_set import ModelQuerySet
 
 from tests.integration.base import BaseCassEngTestCase
@@ -77,18 +77,16 @@ class TestConsistency(BaseConsistencyTest):
     def test_batch_consistency(self):
 
         with mock.patch.object(self.conn.session, 'execute') as m:
-            b = BatchQuery(consistency=CL.ALL)
-            TestConsistencyModel.batch(b).create(self.conn, text="monkey")
-            self.conn.execute_query(b)
+            with Batch(self.conn, consistency=CL.ALL) as b_conn:
+                TestConsistencyModel.create(b_conn, text="monkey")
 
         args = m.call_args
 
         self.assertEqual(CL.ALL, args[0][0].consistency_level)
 
         with mock.patch.object(self.conn.session, 'execute') as m:
-            b = BatchQuery()
-            TestConsistencyModel.batch(b).create(self.conn, text="monkey")
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                TestConsistencyModel.create(b_conn, text="monkey")
 
         args = m.call_args
         self.assertNotEqual(CL.ALL, args[0][0].consistency_level)
