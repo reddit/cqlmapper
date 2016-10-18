@@ -20,12 +20,10 @@ import mock
 from uuid import uuid4
 
 from cqlmapper import columns, LWTException
+from cqlmapper.batch import Batch
 from cqlmapper.management import sync_table, drop_table
 from cqlmapper.models import Model
-from cqlmapper.query import (
-    BatchQuery,
-    IfNotExistsWithCounterColumn,
-)
+from cqlmapper.query import IfNotExistsWithCounterColumn
 from cqlmapper.query_set import ModelQuerySet
 
 from tests.integration.base import BaseCassEngTestCase
@@ -132,24 +130,21 @@ class IfNotExistsInsertTests(BaseIfNotExistsTest):
 
         id = uuid4()
 
-        b = BatchQuery()
-        TestIfNotExistsModel.batch(b).if_not_exists().create(
-            self.conn,
-            id=id,
-            count=8,
-            text='123456789',
-        )
-        self.conn.execute_query(b)
-
-        b = BatchQuery()
-        TestIfNotExistsModel.batch(b).if_not_exists().create(
-            self.conn,
-            id=id,
-            count=9,
-            text='111111111111',
-        )
+        with Batch(self.conn) as b_conn:
+            TestIfNotExistsModel.if_not_exists().create(
+                b_conn,
+                id=id,
+                count=8,
+                text='123456789',
+            )
         with self.assertRaises(LWTException) as assertion:
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                TestIfNotExistsModel.if_not_exists().create(
+                    b_conn,
+                    id=id,
+                    count=9,
+                    text='111111111111',
+                )
 
         self.assertEqual(assertion.exception.existing, {
             'count': 8,
@@ -195,12 +190,11 @@ class IfNotExistsModelTest(BaseIfNotExistsTest):
     def test_batch_if_not_exists(self):
         """ ensure 'IF NOT EXISTS' exists in statement when in batch """
         with mock.patch.object(self.conn.session, 'execute') as m:
-            b = BatchQuery()
-            TestIfNotExistsModel.batch(b).if_not_exists().create(
-                self.conn,
-                count=8,
-            )
-            self.conn.execute_query(b)
+            with Batch(self.conn) as b_conn:
+                TestIfNotExistsModel.if_not_exists().create(
+                    b_conn,
+                    count=8,
+                )
 
         self.assertIn("IF NOT EXISTS", m.call_args[0][0].query_string)
 
