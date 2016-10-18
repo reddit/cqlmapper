@@ -17,7 +17,12 @@ import six
 
 from cassandra.query import SimpleStatement, dict_factory
 
-from cqlmapper import CQLEngineException, LWTException, TIMEOUT_NOT_SET
+from cqlmapper import (
+    ConnectionInterface,
+    CQLEngineException,
+    LWTException,
+    TIMEOUT_NOT_SET,
+)
 from cqlmapper.batch import Batch
 from cqlmapper.query import DMLQuery
 from cqlmapper.statements import BaseCQLStatement
@@ -42,12 +47,7 @@ def check_applied(result):
         raise LWTException(result[0])
 
 
-class ConnectionInterface(object):
-
-    def execute(self, query_or_statement):
-        raise NotImplementedError
-
-class Connection(object):
+class Connection(ConnectionInterface):
     """CQLEngine Connection"""
 
     name = None

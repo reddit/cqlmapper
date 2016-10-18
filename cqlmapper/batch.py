@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 import six
 from warnings import warn
 
-from cqlmapper import TIMEOUT_NOT_SET, CQLEngineException
+from cqlmapper import TIMEOUT_NOT_SET, CQLEngineException, ConnectionInterface
 from cqlmapper.statements import BaseCQLStatement
 
 
-class Batch(object):
+class Batch(ConnectionInterface):
     """
     Handles the batching of queries
 
