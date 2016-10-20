@@ -448,12 +448,12 @@ class ModelQuerySet(object):
             raise CQLEngineException("None values on filter are not allowed")
 
         clone = copy.deepcopy(self)
-        for operator in args:
-            if not isinstance(operator, WhereClause):
-                raise QueryException(
-                    '{0} is not a valid query operator'.format(operator)
-                )
-            clone._where.append(operator)
+        # for operator in args:
+        #     if not isinstance(operator, WhereClause):
+        #         raise QueryException(
+        #             '{0} is not a valid query operator'.format(operator)
+        #         )
+        #     clone._where.append(operator)
 
         for arg, val in kwargs.items():
             col_name, col_op = self._parse_filter_arg(arg)
