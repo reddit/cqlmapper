@@ -64,44 +64,23 @@ class BatchTests(BaseCassEngTestCase):
 
     @execute_count(3)
     def test_insert_success_case(self):
-        b_conn = Batch(self.conn)
-        TestMultiKeyModel.create(
-            b_conn,
-            partition=self.pkey,
-            cluster=2,
-            count=3,
-            text='4',
-        )
-
-        with self.assertRaises(TestMultiKeyModel.DoesNotExist):
-            TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=2)
-
-        b_conn.execute_batch()
-
-        TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=2)
-
-    def test_context_manager(self):
-
         with Batch(self.conn) as b_conn:
-            for i in range(5):
-                TestMultiKeyModel.create(
-                    b_conn,
+            TestMultiKeyModel.create(
+                b_conn,
+                partition=self.pkey,
+                cluster=2,
+                count=3,
+                text='4',
+            )
+
+            with self.assertRaises(TestMultiKeyModel.DoesNotExist):
+                TestMultiKeyModel.get(
+                    self.conn,
                     partition=self.pkey,
-                    cluster=i,
-                    count=3,
-                    text='4',
+                    cluster=2,
                 )
 
-            for i in range(5):
-                with self.assertRaises(TestMultiKeyModel.DoesNotExist):
-                    TestMultiKeyModel.get(
-                        self.conn,
-                        partition=self.pkey,
-                        cluster=i,
-                    )
-
-        for i in range(5):
-            TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=i)
+        TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=2)
 
     @execute_count(4)
     def test_update_success_case(self):
@@ -181,8 +160,8 @@ class BatchTests(BaseCassEngTestCase):
 
     @execute_count(0)
     def test_empty_batch(self):
-        b = Batch(self.conn)
-        b.execute_batch()
+        with Batch(self.conn) as b_conn:
+            pass
 
     def test_batch_execute_timeout(self):
         with mock.patch.object(self.conn.session, 'execute') as mock_execute:
@@ -212,17 +191,16 @@ class BatchCallbacksTests(BaseCassEngTestCase):
             pass
 
         # adding on init:
-        batch = Batch(self.conn)
+        with Batch(self.conn) as b_conn:
+            b_conn.add_callback(my_callback)
+            b_conn.add_callback(my_callback, 2, named_arg='value')
+            b_conn.add_callback(my_callback, 1, 3)
 
-        batch.add_callback(my_callback)
-        batch.add_callback(my_callback, 2, named_arg='value')
-        batch.add_callback(my_callback, 1, 3)
-
-        self.assertEqual(batch._callbacks, [
-            (my_callback, (), {}),
-            (my_callback, (2,), {'named_arg':'value'}),
-            (my_callback, (1, 3), {})
-        ])
+            self.assertEqual(b_conn._callbacks, [
+                (my_callback, (), {}),
+                (my_callback, (2,), {'named_arg':'value'}),
+                (my_callback, (1, 3), {})
+            ])
 
     def test_callbacks_properly_execute_callables_and_tuples(self):
 
@@ -232,12 +210,9 @@ class BatchCallbacksTests(BaseCassEngTestCase):
             call_history.append(args)
 
         # adding on init:
-        batch = Batch(self.conn)
-
-        batch.add_callback(my_callback)
-        batch.add_callback(my_callback, 'more', 'args')
-
-        batch.execute_batch()
+        with Batch(self.conn) as b_conn:
+            b_conn.add_callback(my_callback)
+            b_conn.add_callback(my_callback, 'more', 'args')
 
         self.assertEqual(len(call_history), 2)
         self.assertEqual([(), ('more', 'args')], call_history)
@@ -251,9 +226,8 @@ class BatchCallbacksTests(BaseCassEngTestCase):
         def my_callback(*args, **kwargs):
             call_history.append(args)
 
-        b_conn = Batch(self.conn)
-        b_conn.add_callback(my_callback)
-        b_conn.execute_batch()
+        with Batch(self.conn) as b_conn:
+            b_conn.add_callback(my_callback)
 
         self.assertEqual(len(call_history), 1)
 
@@ -296,10 +270,10 @@ class BatchCallbacksTests(BaseCassEngTestCase):
             call_history.append(args)
 
         with warnings.catch_warnings(record=True) as w:
-            batch = Batch(self.conn)
-            batch.add_callback(my_callback)
-            batch.execute_batch()
-            batch.execute_batch()
+            with Batch(self.conn) as b_conn:
+                b_conn.add_callback(my_callback)
+            with b_conn:
+                pass
         self.assertEqual(len(w), 1)
         self.assertRegexpMatches(str(w[0].message), r"^Batch.*multiple.*")
 

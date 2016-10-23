@@ -157,7 +157,8 @@ class Batch(ConnectionInterface):
             self.timeout,
         )
 
-    def execute_batch(self):
+    def _execute_batch(self):
+        assert self._context_entered
         if self._executed:
             msg = "Batch executed multiple times."
             if self._context_entered:
@@ -170,8 +171,6 @@ class Batch(ConnectionInterface):
         if len(self.queries) == 0:
             # Empty batch is a no-op except for callbacks which will be called
             # by __exit__
-            if not self._context_entered:
-                self._cleanup()
             return
 
         batch_args = self._prepare()
@@ -202,6 +201,6 @@ class Batch(ConnectionInterface):
         # don't execute if there was an exception by default
         if exc_type is not None and not self._execute_on_exception:
             return
-        self.execute_batch()
+        self._execute_batch()
         self._cleanup()
 

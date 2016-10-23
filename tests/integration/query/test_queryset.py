@@ -710,7 +710,7 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         with self.assertRaises(TestModel.MultipleObjectsReturned):
             TestModel.objects.get(self.conn, test_id=1)
 
-    @execute_count(7)
+    @execute_count(6)
     def test_non_quality_filtering(self):
         class NonEqualityFilteringModel(Model):
 
@@ -722,8 +722,12 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         # This makes 2 calls to execute since it has to create an index
         sync_table(self.conn, NonEqualityFilteringModel)
 
-        # setup table, etc.
+        def _cleanup():
+            drop_table(self.conn, NonEqualityFilteringModel)
 
+        self.addCleanup(_cleanup)
+
+        # setup table, etc.
         NonEqualityFilteringModel.create(
             self.conn,
             sequence_id=1,
@@ -748,7 +752,6 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         ).allow_filtering()
         num = qa.count(self.conn)
         assert num == 1, num
-        drop_table(self.conn, NonEqualityFilteringModel)
 
 
 class TestQuerySetDistinct(BaseQuerySetUsage):
