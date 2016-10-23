@@ -20,7 +20,6 @@ from cqlmapper.models import (
     Model,
     ModelException,
     ModelDefinitionException,
-    ColumnQueryEvaluator,
 )
 from cqlmapper.query import DMLQuery
 from cqlmapper.query_set import ModelQuerySet
@@ -379,14 +378,16 @@ class TestAbstractModelClasses(BaseCassEngTestCase):
         into the concrete class
         """
         assert hasattr(ConcreteModelWithCol, 'pkey')
-        assert isinstance(ConcreteModelWithCol.pkey, ColumnQueryEvaluator)
         assert isinstance(
             ConcreteModelWithCol._columns['pkey'],
             columns.Column,
         )
 
     def test_concrete_class_table_creation_cycle(self):
-        """ Tests that models with inherited abstract classes can be created, and have io performed """
+        """
+        Tests that models with inherited abstract classes can be created, and
+        have io performed
+        """
         from cqlmapper.management import sync_table, drop_table
         sync_table(self.conn, ConcreteModelWithCol)
 

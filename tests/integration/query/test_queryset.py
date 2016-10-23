@@ -126,22 +126,6 @@ class TestQuerySetOperation(BaseCassEngTestCase):
         assert isinstance(op.operator, operators.GreaterThanOrEqualOperator)
         assert op.value == 1
 
-    def test_query_expression_parsing(self):
-        """ Tests that query experessions are evaluated properly """
-        query1 = TestModel.filter(TestModel.column('test_id') == 5)
-        assert len(query1._where) == 1
-
-        op = query1._where[0]
-        assert isinstance(op.operator, operators.EqualsOperator)
-        assert op.value == 5
-
-        query2 = query1.filter(TestModel.column('expected_result') >= 1)
-        assert len(query2._where) == 2
-
-        op = query2._where[1]
-        assert isinstance(op.operator, operators.GreaterThanOrEqualOperator)
-        assert op.value == 1
-
     def test_filter_method_where_clause_generation(self):
         """
         Tests the where clause creation
@@ -153,29 +137,6 @@ class TestQuerySetOperation(BaseCassEngTestCase):
         self.assertEqual(where.value, 5)
 
         query2 = query1.filter(expected_result__gte=1)
-        self.assertEqual(len(query2._where), 2)
-
-        where = query2._where[0]
-        self.assertEqual(where.field, 'test_id')
-        self.assertIsInstance(where.operator, EqualsOperator)
-        self.assertEqual(where.value, 5)
-
-        where = query2._where[1]
-        self.assertEqual(where.field, 'expected_result')
-        self.assertIsInstance(where.operator, GreaterThanOrEqualOperator)
-        self.assertEqual(where.value, 1)
-
-    def test_query_expression_where_clause_generation(self):
-        """
-        Tests the where clause creation
-        """
-        query1 = TestModel.objects(TestModel.column('test_id') == 5)
-        self.assertEqual(len(query1._where), 1)
-        where = query1._where[0]
-        self.assertEqual(where.field, 'test_id')
-        self.assertEqual(where.value, 5)
-
-        query2 = query1.filter(TestModel.column('expected_result') >= 1)
         self.assertEqual(len(query2._where), 2)
 
         where = query2._where[0]
@@ -209,51 +170,24 @@ class TestQuerySetOperation(BaseCassEngTestCase):
 
         op = query2._where[1]
         self.assertIsInstance(op, statements.WhereClause)
-        self.assertIsInstance(op.operator, operators.GreaterThanOrEqualOperator)
-        assert op.value == 1
-
-    def test_query_expression_parsing(self):
-        """ Tests that query experessions are evaluated properly """
-        query1 = TestModel.filter(TestModel.test_id == 5)
-        assert len(query1._where) == 1
-
-        op = query1._where[0]
-        assert isinstance(op, statements.WhereClause)
-        assert isinstance(op.operator, operators.EqualsOperator)
-        assert op.value == 5
-
-        query2 = query1.filter(TestModel.expected_result >= 1)
-        assert len(query2._where) == 2
-
-        op = query2._where[1]
-        self.assertIsInstance(op, statements.WhereClause)
-        self.assertIsInstance(op.operator, operators.GreaterThanOrEqualOperator)
+        self.assertIsInstance(
+            op.operator,
+            operators.GreaterThanOrEqualOperator,
+        )
         assert op.value == 1
 
     def test_using_invalid_column_names_in_filter_kwargs_raises_error(self):
         """
-        Tests that using invalid or nonexistant column names for filter args raises an error
+        Tests that using invalid or nonexistant column names for filter args
+        raises an error
         """
         with self.assertRaises(query.QueryException):
             TestModel.objects(nonsense=5)
 
-    def test_using_nonexistant_column_names_in_query_args_raises_error(self):
-        """
-        Tests that using invalid or nonexistant columns for query args raises an error
-        """
-        with self.assertRaises(AttributeError):
-            TestModel.objects(TestModel.nonsense == 5)
-
-    def test_using_non_query_operators_in_query_args_raises_error(self):
-        """
-        Tests that providing query args that are not query operator instances raises an error
-        """
-        with self.assertRaises(query.QueryException):
-            TestModel.objects(5)
-
     def test_queryset_is_immutable(self):
         """
-        Tests that calling a queryset function that changes it's state returns a new queryset
+        Tests that calling a queryset function that changes it's state returns
+        a new queryset
         """
         query1 = TestModel.objects(test_id=5)
         assert len(query1._where) == 1
@@ -264,7 +198,8 @@ class TestQuerySetOperation(BaseCassEngTestCase):
 
     def test_queryset_limit_immutability(self):
         """
-        Tests that calling a queryset function that changes it's state returns a new queryset with same limit
+        Tests that calling a queryset function that changes it's state returns
+        a new queryset with same limit
         """
         query1 = TestModel.objects(test_id=5).limit(1)
         assert query1._limit == 1
@@ -278,7 +213,8 @@ class TestQuerySetOperation(BaseCassEngTestCase):
 
     def test_the_all_method_duplicates_queryset(self):
         """
-        Tests that calling all on a queryset with previously defined filters duplicates queryset
+        Tests that calling all on a queryset with previously defined filters
+        duplicates queryset
         """
         query1 = TestModel.objects(test_id=5)
         assert len(query1._where) == 1
@@ -291,7 +227,8 @@ class TestQuerySetOperation(BaseCassEngTestCase):
 
     def test_queryset_with_distinct(self):
         """
-        Tests that calling distinct on a queryset w/without parameter are evaluated properly.
+        Tests that calling distinct on a queryset w/without parameter are
+        evaluated properly.
         """
 
         query1 = TestModel.objects.distinct()
@@ -335,7 +272,9 @@ class TestQuerySetOperation(BaseCassEngTestCase):
         with self.assertRaises(query.QueryException):
             q._select_fields()
 
-        q = TestModel.objects.filter(test_id=0).only(['test_id', 'attempt_id', 'description'])
+        q = TestModel.objects.filter(test_id=0).only(
+            ['test_id', 'attempt_id', 'description']
+        )
         self.assertEqual(q._select_fields(), ['attempt_id', 'description'])
 
         # no fields to select
@@ -671,17 +610,6 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         assert q.count(self.conn) == 4
 
     @execute_count(2)
-    def test_query_expression_count(self):
-        """
-        Tests that adding query statements affects the count query as
-        expected
-        """
-        assert TestModel.objects.count(self.conn) == 12
-
-        q = TestModel.objects(TestModel.test_id == 0)
-        assert q.count(self.conn) == 4
-
-    @execute_count(3)
     def test_iteration(self):
         """
         Tests that iterating over a query set pulls back all of the expected
@@ -707,56 +635,40 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
             compare_set.remove(val)
         assert len(compare_set) == 0
 
-        # test with query method
-        q = TestModel.objects(TestModel.attempt_id == 3).allow_filtering()
-        assert len(q.find_all(self.conn)) == 3
-        # tuple of expected test_id, expected_result values
-        compare_set = set([(0, 20), (1, 20), (2, 75)])
+    @execute_count(1)
+    def test_multiple_iterations_work_properly(self):
+        """ Tests that iterating over a query set more than once works """
+        q = TestModel.objects(test_id=0)
+        # tuple of expected attempt_id, expected_result values
+        compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
         for t in q.iter(self.conn):
-            val = t.test_id, t.expected_result
+            val = t.attempt_id, t.expected_result
             assert val in compare_set
             compare_set.remove(val)
         assert len(compare_set) == 0
 
-    @execute_count(2)
-    def test_multiple_iterations_work_properly(self):
-        """ Tests that iterating over a query set more than once works """
-        # test with both the filtering method and the query method
-        q_1 = TestModel.objects(test_id=0)
-        q_2 = TestModel.objects(TestModel.test_id == 0)
-        for q in (q_1, q_2):
-            # tuple of expected attempt_id, expected_result values
-            compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
-            for t in q.iter(self.conn):
-                val = t.attempt_id, t.expected_result
-                assert val in compare_set
-                compare_set.remove(val)
-            assert len(compare_set) == 0
+        # try it again
+        compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
+        for t in q.iter(self.conn):
+            val = t.attempt_id, t.expected_result
+            assert val in compare_set
+            compare_set.remove(val)
+        assert len(compare_set) == 0
 
-            # try it again
-            compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
-            for t in q.iter(self.conn):
-                val = t.attempt_id, t.expected_result
-                assert val in compare_set
-                compare_set.remove(val)
-            assert len(compare_set) == 0
-
-    @execute_count(2)
+    @execute_count(1)
     def test_multiple_iterators_are_isolated(self):
         """
         tests that the use of one iterator does not affect the behavior of
         another
         """
-        q_1 = TestModel.objects(test_id=0)
-        q_2 = TestModel.objects(TestModel.test_id == 0)
-        for q in (q_1, q_2):
-            q = q.order_by('attempt_id')
-            expected_order = [0, 1, 2, 3]
-            iter1 = q.iter(self.conn)
-            iter2 = q.iter(self.conn)
-            for attempt_id in expected_order:
-                assert next(iter1).attempt_id == attempt_id
-                assert next(iter2).attempt_id == attempt_id
+        q = TestModel.objects(test_id=0)
+        q = q.order_by('attempt_id')
+        expected_order = [0, 1, 2, 3]
+        iter1 = q.iter(self.conn)
+        iter2 = q.iter(self.conn)
+        for attempt_id in expected_order:
+            assert next(iter1).attempt_id == attempt_id
+            assert next(iter2).attempt_id == attempt_id
 
     @execute_count(3)
     def test_get_success_case(self):
@@ -776,35 +688,6 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
 
         q = TestModel.objects(test_id=0)
         m = q.get(self.conn, attempt_id=0)
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-    @execute_count(3)
-    def test_query_expression_get_success_case(self):
-        """
-        Tests that the .get() method works on new and existing querysets
-        """
-        m = TestModel.get(
-            self.conn,
-            TestModel.test_id == 0,
-            TestModel.attempt_id == 0,
-        )
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-        q = TestModel.objects(
-            TestModel.test_id == 0,
-            TestModel.attempt_id == 0,
-        )
-        m = q.get(self.conn)
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-        q = TestModel.objects(TestModel.test_id == 0)
-        m = q.get(self.conn, TestModel.attempt_id == 0)
         assert isinstance(m, TestModel)
         assert m.test_id == 0
         assert m.attempt_id == 0
@@ -861,7 +744,7 @@ class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
         )
 
         qa = NonEqualityFilteringModel.objects(
-            NonEqualityFilteringModel.sequence_id > 3
+            sequence_id__gt=3
         ).allow_filtering()
         num = qa.count(self.conn)
         assert num == 1, num
@@ -924,10 +807,6 @@ class TestQuerySetOrdering(BaseQuerySetUsage):
         # kwarg filtering
         with self.assertRaises(query.QueryException):
             TestModel.objects(test_id=0).order_by('test_id')
-
-        # kwarg filtering
-        with self.assertRaises(query.QueryException):
-            TestModel.objects(TestModel.test_id == 0).order_by('test_id')
 
     def test_ordering_by_non_primary_keys_fails(self):
         with self.assertRaises(query.QueryException):
@@ -1185,38 +1064,32 @@ class TestMinMaxTimeUUIDFunctions(BaseCassEngTestCase):
         )
 
         assert ['1', '2'] == [o.data for o in TimeUUIDQueryModel.filter(
-            TimeUUIDQueryModel.partition == pk,
-            TimeUUIDQueryModel.time <= functions.MaxTimeUUID(midpoint_utc)
+            partition=pk,
+            time__lte=functions.MaxTimeUUID(midpoint_utc),
         ).iter(self.conn)]
 
         assert ['1', '2'] == [
             o.data for o in TimeUUIDQueryModel.filter(
-                TimeUUIDQueryModel.partition == pk,
-                TimeUUIDQueryModel.time <= functions.MaxTimeUUID(
-                    midpoint_helsinki
-                )
+                partition=pk,
+                time__lte=functions.MaxTimeUUID(midpoint_helsinki),
             ).iter(self.conn)
         ]
 
         assert ['2', '3'] == [
             o.data for o in TimeUUIDQueryModel.filter(
-                TimeUUIDQueryModel.partition == pk,
-                TimeUUIDQueryModel.time >= functions.MinTimeUUID(
-                    midpoint_utc
-                )
+                partition=pk,
+                time__gte=functions.MinTimeUUID(midpoint_utc),
             ).iter(self.conn)
         ]
 
         assert ['2', '3'] == [
             o.data for o in TimeUUIDQueryModel.filter(
-                TimeUUIDQueryModel.partition == pk,
-                TimeUUIDQueryModel.time >= functions.MinTimeUUID(
-                    midpoint_helsinki
-                )
+                partition=pk,
+                time__gte=functions.MinTimeUUID(midpoint_helsinki),
             ).iter(self.conn)
         ]
 
-    @execute_count(8)
+    @execute_count(6)
     def test_success_case(self):
         """ Test that the min and max time uuid functions work as expected """
         pk = uuid4()
@@ -1268,39 +1141,12 @@ class TestMinMaxTimeUUIDFunctions(BaseCassEngTestCase):
         assert '3' in datas
         assert '4' in datas
 
-        # test query expression filtering
-        q = TimeUUIDQueryModel.filter(
-            TimeUUIDQueryModel.partition == pk,
-            TimeUUIDQueryModel.time <= functions.MaxTimeUUID(midpoint),
-        ).iter(self.conn)
-        q = [d for d in q]
-        assert len(q) == 2
-        datas = [d.data for d in q]
-        assert '1' in datas
-        assert '2' in datas
-
-        q = TimeUUIDQueryModel.filter(
-            TimeUUIDQueryModel.partition == pk,
-            TimeUUIDQueryModel.time >= functions.MinTimeUUID(midpoint)
-        ).iter(self.conn)
-        q = [d for d in q]
-        assert len(q) == 2
-        datas = [d.data for d in q]
-        assert '3' in datas
-        assert '4' in datas
-
 
 class TestInOperator(BaseQuerySetUsage):
     @execute_count(1)
     def test_kwarg_success_case(self):
         """ Tests the in operator works with the kwarg query method """
         q = TestModel.filter(test_id__in=[0, 1])
-        assert q.count(self.conn) == 8
-
-    @execute_count(1)
-    def test_query_expression_success_case(self):
-        """ Tests the in operator works with the query expression query method """
-        q = TestModel.filter(TestModel.test_id.in_([0, 1]))
         assert q.count(self.conn) == 8
 
     @execute_count(7)
@@ -1398,55 +1244,6 @@ class TestContainsOperator(BaseQuerySetUsage):
         with self.assertRaises(QueryException):
             q = IndexedCollectionsTestModel.filter(
                 test_map_no_index__contains=1
-            )
-            self.assertEqual(q.count(self.conn), 0)
-
-    @execute_count(6)
-    def test_query_expression_success_case(self):
-        """ Tests the CONTAINS operator works with the query expression query method """
-        q = IndexedCollectionsTestModel.filter(
-            IndexedCollectionsTestModel.test_list.contains_(1)
-        )
-        self.assertEqual(q.count(self.conn), 2)
-
-        q = IndexedCollectionsTestModel.filter(
-            IndexedCollectionsTestModel.test_list.contains_(13)
-        )
-        self.assertEqual(q.count(self.conn), 0)
-
-        q = IndexedCollectionsTestModel.filter(
-            IndexedCollectionsTestModel.test_set.contains_(3)
-        )
-        self.assertEqual(q.count(self.conn), 2)
-
-        q = IndexedCollectionsTestModel.filter(
-            IndexedCollectionsTestModel.test_set.contains_(13)
-        )
-        self.assertEqual(q.count(self.conn), 0)
-
-        q = IndexedCollectionsTestModel.filter(
-            IndexedCollectionsTestModel.test_map.contains_(42)
-        )
-        self.assertEqual(q.count(self.conn), 1)
-
-        q = IndexedCollectionsTestModel.filter(
-            IndexedCollectionsTestModel.test_map.contains_(13)
-        )
-        self.assertEqual(q.count(self.conn), 0)
-
-        with self.assertRaises(QueryException):
-            q = IndexedCollectionsTestModel.filter(
-                IndexedCollectionsTestModel.test_map_no_index.contains_(1)
-            )
-            self.assertEqual(q.count(self.conn), 0)
-        with self.assertRaises(QueryException):
-            q = IndexedCollectionsTestModel.filter(
-                IndexedCollectionsTestModel.test_map_no_index.contains_(1)
-            )
-            self.assertEqual(q.count(self.conn), 0)
-        with self.assertRaises(QueryException):
-            q = IndexedCollectionsTestModel.filter(
-                IndexedCollectionsTestModel.test_map_no_index.contains_(1)
             )
             self.assertEqual(q.count(self.conn), 0)
 
@@ -1914,178 +1711,6 @@ class TestModelQueryWithDifferedFeld(BaseCassEngTestCase):
         smiths = People2.filter(last_name="Smith").find_all(self.conn)
         self.assertEqual(len(smiths), 5)
         self.assertTrue(smiths[0].last_name is not None)
-
-
-class TestQuerySetCountSelectionAndIteration(BaseQuerySetUsage):
-
-    @execute_count(2)
-    def test_count(self):
-        """
-        Tests that adding filtering statements affects the count query as
-        expected
-        """
-        assert TestModel.objects.count(self.conn) == 12
-
-        q = TestModel.objects(test_id=0)
-        assert q.count(self.conn) == 4
-
-    @execute_count(2)
-    def test_query_expression_count(self):
-        """
-        Tests that adding query statements affects the count query as
-        expected
-        """
-        assert TestModel.objects.count(self.conn) == 12
-
-        q = TestModel.objects.filter(TestModel.test_id == 0)
-        assert q.count(self.conn) == 4
-
-    @execute_count(3)
-    def test_iteration(self):
-        """ Tests that iterating over a query set pulls back all of the expected results """
-        q = TestModel.objects(test_id=0)
-        # tuple of expected attempt_id, expected_result values
-        compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
-        for t in q.iter(self.conn):
-            val = t.attempt_id, t.expected_result
-            assert val in compare_set
-            compare_set.remove(val)
-        assert len(compare_set) == 0
-
-        # test with regular filtering
-        q = TestModel.objects(
-            attempt_id=3
-        ).allow_filtering().find_all(self.conn)
-        assert len(q) == 3
-        # tuple of expected test_id, expected_result values
-        compare_set = set([(0, 20), (1, 20), (2, 75)])
-        for t in q:
-            val = t.test_id, t.expected_result
-            assert val in compare_set
-            compare_set.remove(val)
-        assert len(compare_set) == 0
-
-        # test with query method
-        q = TestModel.objects(
-            TestModel.attempt_id == 3
-        ).allow_filtering().find_all(self.conn)
-        assert len(q) == 3
-        # tuple of expected test_id, expected_result values
-        compare_set = set([(0, 20), (1, 20), (2, 75)])
-        for t in q:
-            val = t.test_id, t.expected_result
-            assert val in compare_set
-            compare_set.remove(val)
-        assert len(compare_set) == 0
-
-    @execute_count(2)
-    def test_multiple_iterations_work_properly(self):
-        """ Tests that iterating over a query set more than once works """
-        # test with both the filtering method and the query method
-        q_1 = TestModel.objects(test_id=0)
-        q_2 = TestModel.objects(TestModel.test_id == 0)
-        for q in (q_1, q_2):
-            # tuple of expected attempt_id, expected_result values
-            compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
-            for t in q.iter(self.conn):
-                val = t.attempt_id, t.expected_result
-                assert val in compare_set
-                compare_set.remove(val)
-            assert len(compare_set) == 0
-
-            # try it again
-            compare_set = set([(0, 5), (1, 10), (2, 15), (3, 20)])
-            for t in q.iter(self.conn):
-                val = t.attempt_id, t.expected_result
-                assert val in compare_set
-                compare_set.remove(val)
-            assert len(compare_set) == 0
-
-    @execute_count(2)
-    def test_multiple_iterators_are_isolated(self):
-        """
-        tests that the use of one iterator does not affect the behavior of another
-        """
-        q_1 = TestModel.objects(test_id=0)
-        q_2 = TestModel.objects(TestModel.test_id == 0)
-        for q in (q_1, q_2):
-            q = q.order_by('attempt_id')
-            expected_order = [0, 1, 2, 3]
-            iter1 = q.iter(self.conn)
-            iter2 = q.iter(self.conn)
-            for attempt_id in expected_order:
-                assert next(iter1).attempt_id == attempt_id
-                assert next(iter2).attempt_id == attempt_id
-
-    @execute_count(3)
-    def test_get_success_case(self):
-        """
-        Tests that the .get() method works on new and existing querysets
-        """
-        import logging
-        m = TestModel.objects.get(self.conn, test_id=0, attempt_id=0)
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-        q = TestModel.objects(test_id=0, attempt_id=0)
-        m = q.get(self.conn)
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-        q = TestModel.objects(test_id=0)
-        m = q.get(self.conn, attempt_id=0)
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-    @execute_count(3)
-    def test_query_expression_get_success_case(self):
-        """
-        Tests that the .get() method works on new and existing querysets
-        """
-        m = TestModel.get(
-            self.conn,
-            TestModel.test_id == 0,
-            TestModel.attempt_id == 0,
-        )
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-        q = TestModel.objects(
-            TestModel.test_id == 0,
-            TestModel.attempt_id == 0,
-        )
-        m = q.get(self.conn)
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-        q = TestModel.objects(TestModel.test_id == 0)
-        m = q.get(self.conn, TestModel.attempt_id == 0)
-        assert isinstance(m, TestModel)
-        assert m.test_id == 0
-        assert m.attempt_id == 0
-
-    @execute_count(1)
-    def test_get_doesnotexist_exception(self):
-        """
-        Tests that get calls that don't return a result raises a DoesNotExist
-        error
-        """
-        with self.assertRaises(TestModel.DoesNotExist):
-            TestModel.objects.get(self.conn, test_id=100)
-
-    @execute_count(1)
-    def test_get_multipleobjects_exception(self):
-        """
-        Tests that get calls that return multiple results raise a
-        MultipleObjectsReturned error
-        """
-        with self.assertRaises(TestModel.MultipleObjectsReturned):
-            TestModel.objects.get(self.conn, test_id=1)
 
 
 if __name__ == "__main__":

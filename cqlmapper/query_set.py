@@ -121,8 +121,8 @@ class ModelQuerySet(object):
     def __str__(self):
         return str(self.__unicode__())
 
-    def __call__(self, *args, **kwargs):
-        return self.filter(*args, **kwargs)
+    def __call__(self, **kwargs):
+        return self.filter(**kwargs)
 
     def __deepcopy__(self, memo):
         clone = self.__class__(self.model)
@@ -435,7 +435,7 @@ class ModelQuerySet(object):
 
         return clone
 
-    def filter(self, *args, **kwargs):
+    def filter(self, **kwargs):
         """
         Adds WHERE arguments to the queryset, returning a new queryset
 
@@ -448,12 +448,6 @@ class ModelQuerySet(object):
             raise CQLEngineException("None values on filter are not allowed")
 
         clone = copy.deepcopy(self)
-        for operator in args:
-            if not isinstance(operator, WhereClause):
-                raise QueryException(
-                    '{0} is not a valid query operator'.format(operator)
-                )
-            clone._where.append(operator)
 
         for arg, val in kwargs.items():
             col_name, col_op = self._parse_filter_arg(arg)
@@ -522,9 +516,9 @@ class ModelQuerySet(object):
 
         return clone
 
-    def find(self, conn, *args, **kwargs):
-        if args or kwargs:
-            return self.filter(*args, **kwargs).find(conn)
+    def find(self, conn, **kwargs):
+        if kwargs:
+            return self.filter(**kwargs).find(conn)
 
         self._execute_query(conn)
         return self.iter(conn)
@@ -532,7 +526,7 @@ class ModelQuerySet(object):
     def find_all(self, conn, *args, **kwargs):
         return [x for x in self.find(conn, *args, **kwargs)]
 
-    def get(self, conn, *args, **kwargs):
+    def get(self, conn, **kwargs):
         """
         Returns a single instance matching this query, optionally with
         additional filter kwargs.
@@ -551,8 +545,8 @@ class ModelQuerySet(object):
         If more than one object is found, a :class:`~.MultipleObjectsReturned`
         exception is raised.
         """
-        if args or kwargs:
-            return self.filter(*args, **kwargs).get(conn)
+        if kwargs:
+            return self.filter(**kwargs).get(conn)
 
         self._execute_query(conn)
 

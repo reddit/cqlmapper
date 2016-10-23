@@ -246,7 +246,7 @@ class TestModelIO(BaseCassEngTestCase):
             self.assertEqual(input[i], output[chr(i_char)])
 
     def test_can_specify_none_instead_of_default(self):
-        self.assertIsNotNone(TestModel.a_bool.column.default)
+        self.assertIsNotNone(TestModel.a_bool.default)
 
         # override default
         inst = TestModel.create(self.conn, a_bool=None)
@@ -256,9 +256,9 @@ class TestModelIO(BaseCassEngTestCase):
 
         # letting default be set
         inst = TestModel.create(self.conn)
-        self.assertEqual(inst.a_bool, TestModel.a_bool.column.default)
+        self.assertEqual(inst.a_bool, TestModel.a_bool.default)
         queried = TestModel.objects(id=inst.id).first(self.conn)
-        self.assertEqual(queried.a_bool, TestModel.a_bool.column.default)
+        self.assertEqual(queried.a_bool, TestModel.a_bool.default)
 
     def test_can_insert_model_with_all_protocol_v4_column_types(self):
         """
@@ -815,8 +815,9 @@ class TestQuerying(BaseCassEngTestCase):
         self.assertEqual(obj.description, u'foo')
 
         inst = TestQueryModel.filter(
-            TestQueryModel.test_id == uid,
-            TestQueryModel.date == day).limit(1).first(self.conn)
+            test_id__eq=uid,
+            date__eq=day,
+        ).limit(1).first(self.conn)
 
         self.assertTrue(inst.test_id == uid)
         self.assertTrue(inst.date == day)
