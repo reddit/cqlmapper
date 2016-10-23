@@ -815,8 +815,9 @@ class TestQuerying(BaseCassEngTestCase):
         self.assertEqual(obj.description, u'foo')
 
         inst = TestQueryModel.filter(
-            TestQueryModel.test_id == uid,
-            TestQueryModel.date == day).limit(1).first(self.conn)
+            test_id__eq=uid,
+            date__eq=day,
+        ).limit(1).first(self.conn)
 
         self.assertTrue(inst.test_id == uid)
         self.assertTrue(inst.date == day)

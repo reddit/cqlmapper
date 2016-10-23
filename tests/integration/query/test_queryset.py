@@ -808,10 +808,6 @@ class TestQuerySetOrdering(BaseQuerySetUsage):
         with self.assertRaises(query.QueryException):
             TestModel.objects(test_id=0).order_by('test_id')
 
-        # kwarg filtering
-        with self.assertRaises(query.QueryException):
-            TestModel.objects(TestModel.test_id == 0).order_by('test_id')
-
     def test_ordering_by_non_primary_keys_fails(self):
         with self.assertRaises(query.QueryException):
             TestModel.objects(test_id=0).order_by('description')
@@ -1093,7 +1089,7 @@ class TestMinMaxTimeUUIDFunctions(BaseCassEngTestCase):
             ).iter(self.conn)
         ]
 
-    @execute_count(8)
+    @execute_count(6)
     def test_success_case(self):
         """ Test that the min and max time uuid functions work as expected """
         pk = uuid4()
@@ -1138,27 +1134,6 @@ class TestMinMaxTimeUUIDFunctions(BaseCassEngTestCase):
         q = TimeUUIDQueryModel.filter(
             partition=pk,
             time__gte=functions.MinTimeUUID(midpoint),
-        ).iter(self.conn)
-        q = [d for d in q]
-        assert len(q) == 2
-        datas = [d.data for d in q]
-        assert '3' in datas
-        assert '4' in datas
-
-        # test query expression filtering
-        q = TimeUUIDQueryModel.filter(
-            TimeUUIDQueryModel.partition == pk,
-            TimeUUIDQueryModel.time <= functions.MaxTimeUUID(midpoint),
-        ).iter(self.conn)
-        q = [d for d in q]
-        assert len(q) == 2
-        datas = [d.data for d in q]
-        assert '1' in datas
-        assert '2' in datas
-
-        q = TimeUUIDQueryModel.filter(
-            TimeUUIDQueryModel.partition == pk,
-            TimeUUIDQueryModel.time >= functions.MinTimeUUID(midpoint)
         ).iter(self.conn)
         q = [d for d in q]
         assert len(q) == 2
