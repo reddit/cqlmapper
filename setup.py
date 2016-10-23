@@ -12,6 +12,5 @@ setup(
         "mock",
         "nose",
         "coverage",
-        "sure",
     ],
 )

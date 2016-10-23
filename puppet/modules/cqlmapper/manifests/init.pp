@@ -14,8 +14,15 @@ class cqlmapper {
     'python-nose',
     'python-pudb',
     'python-pip',
-    'python-sure',
     'ipython',
+    'python3',
+    'python3-setuptools',
+    'python3-cassandra',
+    'python3-coverage',
+    'python3-mock',
+    'python3-nose',
+    'python3-pudb',
+    'python3-pip',
   ]
 
   package { $dependencies:
@@ -32,6 +39,6 @@ class cqlmapper {
   exec { 'install app':
     user    => $::user,
     cwd     => $::project_path,
-    command => 'python setup.py develop --user',
+    command => 'python setup.py develop --user && python3 setup.py develop --user',
   }
 }
