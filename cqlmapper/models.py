@@ -247,25 +247,6 @@ class UsingDescriptor(object):
         raise NotImplementedError
 
 
-class ColumnQueryEvaluator(query.AbstractQueryableColumn):
-    """
-    Wraps a column and allows it to be used in comparator
-    expressions, returning query operators
-
-    ie:
-    Model.column == 5
-    """
-
-    def __init__(self, column):
-        self.column = column
-
-    def __unicode__(self):
-        return self.column.db_field_name
-
-    def _get_column(self):
-        return self.column
-
-
 class ColumnDescriptor(object):
     """
     Handles the reading and writing of column values to and from
@@ -280,7 +261,6 @@ class ColumnDescriptor(object):
         :return:
         """
         self.column = column
-        self.query_evaluator = ColumnQueryEvaluator(self.column)
 
     def __get__(self, instance, owner):
         """
@@ -293,7 +273,7 @@ class ColumnDescriptor(object):
         try:
             return instance._values[self.column.column_name].getval()
         except AttributeError:
-            return self.query_evaluator
+            return self.column
 
     def __set__(self, instance, value):
         """
@@ -313,12 +293,15 @@ class ColumnDescriptor(object):
             if self.column.can_delete:
                 instance._values[self.column.column_name].delval()
             else:
-                raise AttributeError('cannot delete {0} columns'.format(self.column.column_name))
+                raise AttributeError(
+                    'cannot delete {0} columns'.format(self.column.column_name)
+                )
 
 
 class BaseModel(object):
     """
-    The base model class, don't inherit from this, inherit from Model, defined below
+    The base model class, don't inherit from this, inherit from Model,
+    defined below
     """
 
     class DoesNotExist(_DoesNotExist):
