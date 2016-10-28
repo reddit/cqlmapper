@@ -168,10 +168,8 @@ class Batch(ConnectionInterface):
             warn(msg)
         self._executed = True
         if len(self.queries) == 0:
-            # Empty batch is a no-op except for callbacks which will be called
-            # by __exit__
-            if not self._context_entered:
-                self._cleanup()
+            # Empty batch is a no-op except for callbacks
+            self._cleanup()
             return
 
         batch_args = self._prepare()
@@ -184,6 +182,7 @@ class Batch(ConnectionInterface):
                 timeout=timeout,
                 verify_applied=True,
             )
+        self._cleanup()
 
     def _execute_callbacks(self):
         for callback, args, kwargs in self._callbacks:
@@ -191,7 +190,6 @@ class Batch(ConnectionInterface):
 
     def _cleanup(self):
         self.queries = []
-        self._context_entered = False
         self._execute_callbacks()
 
     def __enter__(self):
@@ -203,5 +201,5 @@ class Batch(ConnectionInterface):
         if exc_type is not None and not self._execute_on_exception:
             return
         self.execute_batch()
-        self._cleanup()
+        self._context_entered = False
 
