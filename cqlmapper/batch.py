@@ -20,8 +20,6 @@ class Batch(ConnectionInterface):
     Handles the batching of queries
 
     http://docs.datastax.com/en/cql/3.0/cql/cql_reference/batch_r.html
-
-    See :doc:`/cqlengine/batches` for more details.
     """
 
     _consistency = None
@@ -29,8 +27,9 @@ class Batch(ConnectionInterface):
     def __init__(self, conn, batch_type=None, timestamp=None, consistency=None,
                  execute_on_exception=False, timeout=TIMEOUT_NOT_SET):
         """
-        :param conn: cqlmapper.connection.Connection object used to execute
-            the batched queries.
+        :param conn: Cassandra connection wrapper used to execute the batched
+            queries.
+        :type: cqlengine.connection.Connection object
         :param batch_type: (optional) One of batch type values available
             through BatchType enum
         :type batch_type: str or None
@@ -50,7 +49,7 @@ class Batch(ConnectionInterface):
         :type execute_on_exception: bool
         :param timeout: (optional) Timeout for the entire batch (in seconds),
             if not specified fallback to default session timeout
-        :type timeout: float or None
+        :type timeout: float or cqlmapper.TIMEOUT_NOT_SET
         """
         self.conn = conn
         self._executed = False
@@ -71,6 +70,7 @@ class Batch(ConnectionInterface):
         self.consistency = consistency
 
     def execute(self, query, *a, **kw):
+        """Adds the given query to the batch."""
         if isinstance(query, DMLQuery):
             if query.statement:
                 self._add_query(query.statement)
@@ -88,6 +88,10 @@ class Batch(ConnectionInterface):
                     "batch mode"
                 )
             return self._add_query(query)
+        else:
+            raise ValueError(
+                "Unexpected type for query <%s>" % type(query)
+            )
 
     def _add_query(self, query):
         if not isinstance(query, BaseCQLStatement):
@@ -158,12 +162,15 @@ class Batch(ConnectionInterface):
         )
 
     def execute_batch(self):
+        """Execute all currently batched queries and call any callbacks if
+        applicable.
+        """
         if self._executed:
             msg = "Batch executed multiple times."
             if self._context_entered:
                 msg += (
                     " If using the batch as a context manager, there is no "
-                    "need to call execute directly."
+                    "need to call execute_batch directly."
                 )
             warn(msg)
         self._executed = True

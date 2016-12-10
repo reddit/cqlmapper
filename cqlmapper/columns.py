@@ -122,17 +122,6 @@ class Column(object):
     determines the order that the clustering keys are sorted on disk
     """
 
-    discriminator_column = False
-    """
-    boolean, if set to True, this column will be used for discriminating records
-    of inherited models.
-
-    Should only be set on a column of an abstract model being used for inheritance.
-
-    There may only be one discriminator column per model. See :attr:`~.__discriminator_value__`
-    for how to specify the value of this column on specialized models.
-    """
-
     static = False
     """
     boolean, if set to True, this is a static column, with a single value per partition
@@ -146,7 +135,6 @@ class Column(object):
                  default=None,
                  required=False,
                  clustering_order=None,
-                 discriminator_column=False,
                  static=False):
         self.partition_key = partition_key
         self.primary_key = partition_key or primary_key
@@ -155,7 +143,6 @@ class Column(object):
         self.default = default
         self.required = required
         self.clustering_order = clustering_order
-        self.discriminator_column = discriminator_column
 
         # the column name in the model definition
         self.column_name = None
