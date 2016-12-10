@@ -53,7 +53,7 @@ class ConnectionInterface(object):
     """ Interface used to provide a unified Connection interface to cqlmapper.
     """
 
-    def execute(self, query_or_statement):
+    def execute(self, query_or_statement, *a, **kw):
         raise NotImplementedError
 
 

@@ -69,7 +69,7 @@ class Batch(ConnectionInterface):
     def consistency(self, consistency):
         self._consistency = consistency
 
-    def execute(self, query):
+    def execute(self, query, *a, **kw):
         """Adds the given query to the batch."""
         if isinstance(query, DMLQuery):
             if query.statement:
