@@ -17,6 +17,7 @@ import six
 from cassandra.cluster import _NOT_SET
 
 
+# Alias for the _NOT_SET singleton in cassandra.cluster
 TIMEOUT_NOT_SET = _NOT_SET
 
 # Caching constants.
@@ -37,8 +38,8 @@ class ValidationError(CQLEngineException):
 class LWTException(CQLEngineException):
     """Lightweight conditional exception.
 
-    This exception will be raised when a write using an `IF` clause could not 
-    be applied due to existing data violating the condition. The existing data 
+    This exception will be raised when a write using an `IF` clause could not
+    be applied due to existing data violating the condition. The existing data
     is available through the ``existing`` attribute.
 
     :param existing: The current state of the data which prevented the write.
@@ -49,6 +50,8 @@ class LWTException(CQLEngineException):
 
 
 class ConnectionInterface(object):
+    """ Interface used to provide a unified Connection interface to cqlmapper.
+    """
 
     def execute(self, query_or_statement):
         raise NotImplementedError
