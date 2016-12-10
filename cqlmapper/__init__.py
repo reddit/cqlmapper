@@ -37,9 +37,9 @@ class ValidationError(CQLEngineException):
 class LWTException(CQLEngineException):
     """Lightweight conditional exception.
 
-    This exception will be raised when a write using an `IF` clause could not be
-    applied due to existing data violating the condition. The existing data is
-    available through the ``existing`` attribute.
+    This exception will be raised when a write using an `IF` clause could not 
+    be applied due to existing data violating the condition. The existing data 
+    is available through the ``existing`` attribute.
 
     :param existing: The current state of the data which prevented the write.
     """

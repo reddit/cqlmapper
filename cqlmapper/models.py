@@ -36,7 +36,6 @@ def _clone_model_class(model, attrs):
     new_type = type(model.__name__, (model,), attrs)
     try:
         new_type.__abstract__ = model.__abstract__
-        # new_type.__discriminator_value__ = model.__discriminator_value__
         new_type.__default_ttl__ = model.__default_ttl__
     except AttributeError:
         pass
