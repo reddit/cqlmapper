@@ -963,6 +963,13 @@ class UserDefinedType(Column):
                                        field_types=[c.cql_type for c in self.user_type._fields.values()])
 
 
+def resolve_udts(col_def, out_list):
+    for col in col_def.sub_types:
+        resolve_udts(col, out_list)
+    if isinstance(col_def, UserDefinedType):
+        out_list.append(col_def.user_type)
+
+
 class _PartitionKeysToken(Column):
     """
     virtual column representing token of partition columns.

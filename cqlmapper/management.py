@@ -21,6 +21,8 @@ import warnings
 
 from cassandra import metadata
 from cqlmapper import CQLEngineException
+from cqlmapper import columns
+from cqlmapper.usertype import UserType
 from cqlmapper.models import Model
 
 CQLENG_ALLOW_SCHEMA_MANAGEMENT = 'CQLENG_ALLOW_SCHEMA_MANAGEMENT'
@@ -187,6 +189,13 @@ def sync_table(conn, model):
 
     tables = keyspace.tables
 
+    syncd_types = set()
+    for col in model._columns.values():
+        udts = []
+        columns.resolve_udts(col, udts)
+        for udt in [u for u in udts if u not in syncd_types]:
+            _sync_type(conn, udt, syncd_types)
+
     if raw_cf_name not in tables:
         log.debug(
             "sync_table creating new table %s in keyspace %s",
@@ -302,6 +311,94 @@ def _validate_pk(model, table_meta):
                 _pk_string(meta_partition, meta_clustering)
             )
         )
+
+
+def sync_type(conn, type_model):
+    """
+    Inspects the type_model and creates / updates the corresponding type.
+
+    Note that the attributes removed from the type_model are not deleted on the database (this operation is not supported).
+    They become effectively ignored by (will not show up on) the type_model.
+
+    **This function should be used with caution, especially in production environments.
+    Take care to execute schema modifications in a single context (i.e. not concurrently with other clients).**
+
+    *There are plans to guard schema-modifying functions with an environment-driven conditional.*
+    """
+    if not _allow_schema_modification():
+        return
+
+    if not issubclass(type_model, UserType):
+        raise CQLEngineException("Types must be derived from base UserType.")
+
+    _sync_type(conn, type_model)
+
+
+def _sync_type(conn, type_model, omit_subtypes=None):
+    ks_name = conn.keyspace
+    cluster = conn.cluster
+
+    syncd_sub_types = omit_subtypes or set()
+    for field in type_model._fields.values():
+        udts = []
+        columns.resolve_udts(field, udts)
+        for udt in [u for u in udts if u not in syncd_sub_types]:
+            _sync_type(conn, udt, syncd_sub_types)
+            syncd_sub_types.add(udt)
+
+    type_name = type_model.type_name()
+    type_name_qualified = "%s.%s" % (ks_name, type_name)
+
+    keyspace = cluster.metadata.keyspaces[ks_name]
+    defined_types = keyspace.user_types
+    for k, v in defined_types.items():
+        print "%s: %s" % (k, str(v.as_cql_query(formatted=True)))
+
+    if type_name not in defined_types:
+        msg = "sync_type creating new type {0}"
+        log.debug(msg.format(type_name_qualified))
+        cql = get_create_type(type_model, ks_name)
+        conn.execute(cql)
+        type_model.register_for_keyspace(conn, ks_name)
+    else:
+        type_meta = defined_types[type_name]
+        defined_fields = type_meta.field_names
+        model_fields = set()
+        for field in type_model._fields.values():
+            model_fields.add(field.db_field_name)
+            if field.db_field_name not in defined_fields:
+                conn.execute("ALTER TYPE {0} ADD {1}".format(type_name_qualified, field.get_column_def()))
+            else:
+                field_type = type_meta.field_types[defined_fields.index(field.db_field_name)]
+                if field_type != field.db_type:
+                    msg = 'Existing user type {0} has field "{1}" with a type ({2}) differing from the model user type ({3}).' + \
+                          'UserType should be updated.'
+                    msg = msg.format(type_name_qualified, field.db_field_name, field_type, field.db_type)
+                    warnings.warn(msg)
+                    log.warning(msg)
+
+        type_model.register_for_keyspace(conn, ks_name)
+        # try:
+        # cluster.register_user_type(keyspace, type_name, type_model)
+        # except UserTypeDoesNotExist:
+        #     pass  # new types are covered in management sync functions
+
+        if len(defined_fields) == len(model_fields):
+            log.info("Type %s did not require synchronization" % type_name_qualified)
+            return
+
+        db_fields_not_in_model = model_fields.symmetric_difference(defined_fields)
+        if db_fields_not_in_model:
+            msg = "Type %s has fields not referenced by model: %s"
+            log.info(msg, type_name_qualified, db_fields_not_in_model)
+
+
+def get_create_type(type_model, keyspace):
+    type_meta = metadata.UserType(keyspace,
+                                  type_model.type_name(),
+                                  (f.db_field_name for f in type_model._fields.values()),
+                                  (v.db_type for v in type_model._fields.values()))
+    return type_meta.as_cql_query()
 
 
 def _get_create_table(model):

@@ -111,6 +111,10 @@ class BaseUserType(object):
         return [(k, self[k]) for k in self]
 
     @classmethod
+    def register_for_keyspace(cls, conn, keyspace):
+        conn.register_udt(keyspace, cls.type_name(), cls)
+
+    @classmethod
     def type_name(cls):
         """
         Returns the type name if it's been defined
