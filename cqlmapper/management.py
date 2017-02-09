@@ -359,7 +359,7 @@ def _sync_type(conn, type_model, omit_subtypes=None):
         log.debug(msg.format(type_name_qualified))
         cql = get_create_type(type_model, ks_name)
         conn.execute(cql)
-        type_model.register_for_keyspace(conn, ks_name)
+        conn.register_udt(type_model.type_name(), type_model)
     else:
         type_meta = defined_types[type_name]
         defined_fields = type_meta.field_names
@@ -376,12 +376,7 @@ def _sync_type(conn, type_model, omit_subtypes=None):
                     msg = msg.format(type_name_qualified, field.db_field_name, field_type, field.db_type)
                     warnings.warn(msg)
                     log.warning(msg)
-
-        type_model.register_for_keyspace(conn, ks_name)
-        # try:
-        # cluster.register_user_type(keyspace, type_name, type_model)
-        # except UserTypeDoesNotExist:
-        #     pass  # new types are covered in management sync functions
+        conn.register_udt(type_model.type_name(), type_model)
 
         if len(defined_fields) == len(model_fields):
             log.info("Type %s did not require synchronization" % type_name_qualified)

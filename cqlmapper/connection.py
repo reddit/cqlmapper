@@ -46,19 +46,6 @@ def check_applied(result):
         raise LWTException(result[0])
 
 
-def register_udt(conn, keyspace, type_name, klass):
-    try:
-        cluster = conn.cluster
-    except CQLEngineException:
-        cluster = None
-
-    if cluster:
-        try:
-            cluster.register_user_type(keyspace, type_name, klass)
-        except UserTypeDoesNotExist:
-            pass  # new types are covered in management sync functions
-
-
 class Connection(ConnectionInterface):
     """CQLEngine Connection"""
 
@@ -162,8 +149,8 @@ class Connection(ConnectionInterface):
             check_applied(result)
         return result
 
-    def register_udt(self, keyspace, type_name, klass):
+    def register_udt(self, type_name, klass):
         try:
-            self.cluster.register_user_type(keyspace, type_name, klass)
+            self.cluster.register_user_type(self.keyspace, type_name, klass)
         except UserTypeDoesNotExist:
             pass  # new types are covered in management sync functions
