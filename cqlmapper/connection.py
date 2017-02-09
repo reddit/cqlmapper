@@ -15,15 +15,14 @@
 import logging
 import six
 
+from cassandra.cluster import UserTypeDoesNotExist
 from cassandra.query import SimpleStatement, dict_factory
-
 from cqlmapper import (
     ConnectionInterface,
     CQLEngineException,
     LWTException,
     TIMEOUT_NOT_SET,
 )
-from cqlmapper.batch import Batch
 from cqlmapper.query import DMLQuery
 from cqlmapper.statements import BaseCQLStatement
 
@@ -141,8 +140,6 @@ class Connection(ConnectionInterface):
                 "Unexpected query type %s", type(statement_or_query)
             )
 
-        log.debug(statement_or_query.query_string)
-
         result = self.session.execute(
             statement_or_query,
             params,
@@ -152,3 +149,8 @@ class Connection(ConnectionInterface):
             check_applied(result)
         return result
 
+    def register_udt(self, type_name, klass):
+        try:
+            self.cluster.register_user_type(self.keyspace, type_name, klass)
+        except UserTypeDoesNotExist:
+            pass  # new types are covered in management sync functions

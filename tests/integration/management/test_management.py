@@ -17,18 +17,22 @@ except ImportError:
     import unittest  # noqa
 
 import mock
+import logging
 from cqlmapper import CQLEngineException
 from cqlmapper import management
 from cqlmapper.management import (
     _get_table_metadata,
     sync_table,
+    sync_type,
     drop_table,
 )
 from cqlmapper.models import Model
 from cqlmapper import columns
+from cqlmapper.usertype import UserType
 
-from tests.integration import PROTOCOL_VERSION
+from tests.integration import PROTOCOL_VERSION, MockLoggingHandler, CASSANDRA_VERSION, DEFAULT_KEYSPACE
 from tests.integration.base import BaseCassEngTestCase
+
 
 
 class TestModel(Model):
@@ -38,6 +42,18 @@ class TestModel(Model):
     description = columns.Text()
     expected_result = columns.Integer()
     test_result = columns.Integer()
+
+
+class BaseInconsistentType(UserType):
+        __type_name__ = 'type_inconsistent'
+        age = columns.Integer()
+        name = columns.Text()
+
+
+class ChangedInconsistentType(UserType):
+        __type_name__ = 'type_inconsistent'
+        age = columns.Integer()
+        name = columns.Integer()
 
 
 class KeyspaceManagementTest(BaseCassEngTestCase):
@@ -391,6 +407,36 @@ class TestIndexSetModel(Model):
     int_list = columns.List(columns.Integer, index=True)
     text_map = columns.Map(columns.Text, columns.DateTime, index=True)
     mixed_tuple = columns.Tuple(columns.Text, columns.Integer, columns.Text, index=True)
+
+
+class InconsistentTable(BaseCassEngTestCase):
+
+    def setUp(self):
+        super(InconsistentTable, self).setUp()
+        drop_table(self.conn, IndexModel)
+
+    def test_sync_warnings(self):
+        """
+        Test to insure when inconsistent changes are made to a table, or type as part of a sync call that the proper logging messages are surfaced
+
+        @since 3.2
+        @jira_ticket PYTHON-260
+        @expected_result warnings are logged
+
+        @test_category object_mapper
+        """
+        mock_handler = MockLoggingHandler()
+        logger = logging.getLogger(management.__name__)
+        logger.addHandler(mock_handler)
+        sync_table(self.conn, BaseInconsistent)
+        sync_table(self.conn, ChangedInconsistent)
+        self.assertTrue('differing from the model type' in mock_handler.messages.get('warning')[0])
+        if CASSANDRA_VERSION >= '2.1':
+            sync_type(self.conn, BaseInconsistentType)
+            mock_handler.reset()
+            sync_type(self.conn, ChangedInconsistentType)
+            self.assertTrue('differing from the model user type' in mock_handler.messages.get('warning')[0])
+        logger.removeHandler(mock_handler)
 
 
 class IndexTests(BaseCassEngTestCase):
