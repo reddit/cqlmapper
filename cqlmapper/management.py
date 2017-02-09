@@ -347,16 +347,13 @@ def _sync_type(conn, type_model, omit_subtypes=None):
             syncd_sub_types.add(udt)
 
     type_name = type_model.type_name()
-    type_name_qualified = "%s.%s" % (ks_name, type_name)
+    type_name_qualified = "{0}.{1}".format(ks_name, type_name)
 
     keyspace = cluster.metadata.keyspaces[ks_name]
     defined_types = keyspace.user_types
-    for k, v in defined_types.items():
-        print "%s: %s" % (k, str(v.as_cql_query(formatted=True)))
-
     if type_name not in defined_types:
         msg = "sync_type creating new type {0}"
-        log.debug(msg.format(type_name_qualified))
+        log.debug(msg, type_name_qualified)
         cql = get_create_type(type_model, ks_name)
         conn.execute(cql)
         conn.register_udt(type_model.type_name(), type_model)
@@ -379,7 +376,7 @@ def _sync_type(conn, type_model, omit_subtypes=None):
         conn.register_udt(type_model.type_name(), type_model)
 
         if len(defined_fields) == len(model_fields):
-            log.info("Type %s did not require synchronization" % type_name_qualified)
+            log.info("Type %s did not require synchronization", type_name_qualified)
             return
 
         db_fields_not_in_model = model_fields.symmetric_difference(defined_fields)

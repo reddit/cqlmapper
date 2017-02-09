@@ -949,7 +949,7 @@ class UserDefinedType(Column):
         :param type user_type: specifies the :class:`~.cqlengine.usertype.UserType` model of the column
         """
         self.user_type = user_type
-        self.db_type = "frozen<%s>" % user_type.type_name()
+        self.db_type = "frozen<{0}>".format(user_type.type_name())
         super(UserDefinedType, self).__init__(**kwargs)
 
     @property
