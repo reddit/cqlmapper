@@ -45,11 +45,16 @@ def create_keyspace_simple(conn, name, replication_factor,
     *There are plans to guard schema-modifying functions with an
     environment-driven conditional.*
 
-    :param Session conn: cassandra session
-    :param str name: name of keyspace to create
-    :param int replication_factor: keyspace replication factor, used with
+    :param conn: Cassandra connection wrapper used to execute any CQL 
+        statements.
+    :type: cqlengine.ConnectionInterface subclass
+    :param name: name of keyspace to create
+    :type: string
+    :param replication_factor: keyspace replication factor, used with
         :attr:`~.SimpleStrategy`
-    :param bool durable_writes: Write log is bypassed if set to False
+    :type: int
+    :param durable_writes: Write log is bypassed if set to False
+    :type: bool
     """
     _create_keyspace(
         conn,
@@ -73,11 +78,17 @@ def create_keyspace_network_topology(conn, name, dc_replication_map,
     *There are plans to guard schema-modifying functions with an
     environment-driven conditional.*
 
-    :param Session conn: cassandra session
-    :param str name: name of keyspace to create
-    :param dict dc_replication_map: map of dc_names: replication_factor
-    :param bool durable_writes: Write log is bypassed if set to False
-    :param list connections: List of connection names
+    :param conn: Cassandra connection wrapper used to execute any CQL
+        statements.
+    :type: cqlengine.ConnectionInterface subclass
+    :param name: name of keyspace to create
+    :type: string
+    :param dc_replication_map: map of dc_names: replication_factor
+    :type: bool
+    :param durable_writes: Write log is bypassed if set to False
+    :type: bool
+    :param connections: List of connection names
+    :type: list
     """
     _create_keyspace(
         conn,
@@ -118,8 +129,11 @@ def drop_keyspace(conn, name):
     environments. Take care to execute schema modifications in a single
     context (i.e. not concurrently with other clients).**
 
-    :param Session conn: cassandra session
-    :param str name: name of keyspace to drop
+    :param conn: Cassandra connection wrapper used to execute any CQL
+        statements.
+    :type: cqlengine.ConnectionInterface subclass
+    :param name: name of keyspace to drop
+    :type: string
     """
     if not _allow_schema_modification():
         return
@@ -158,6 +172,12 @@ def sync_table(conn, model):
     Note that the attributes removed from the model are not deleted on the
     database. They become effectively ignored by (will not show up on) the
     model.
+
+    :param conn: Cassandra connection wrapper used to execute any CQL
+        statements.
+    :type: cqlengine.ConnectionInterface subclass
+    :param model: Model representing the table you want to sync.
+    :type: cqlmapper.models.Model
 
     **This function should be used with caution, especially in production
     environments. Take care to execute schema modifications in a single
@@ -520,6 +540,12 @@ def _update_options(conn, model):
 
 def drop_table(conn, model):
     """Drops the table indicated by the model, if it exists.
+
+    :param conn: Cassandra connection wrapper used to execute any CQL
+        statements.
+    :type: cqlengine.ConnectionInterface subclass
+    :param model: Model representing the table you want to drop.
+    :type: cqlmapper.models.Model
 
     **This function should be used with caution, especially in production
     environments. Take care to execute schema modifications in a single

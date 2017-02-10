@@ -36,7 +36,6 @@ def _clone_model_class(model, attrs):
     new_type = type(model.__name__, (model,), attrs)
     try:
         new_type.__abstract__ = model.__abstract__
-        # new_type.__discriminator_value__ = model.__discriminator_value__
         new_type.__default_ttl__ = model.__default_ttl__
     except AttributeError:
         pass
@@ -558,10 +557,12 @@ class BaseModel(object):
     @classmethod
     def create(cls, conn, **kwargs):
         """Create an instance of this model in the database.
-
-        Takes the model column values as keyword arguments.
-
-        Returns the instance.
+        
+        :param conn: Cassandra connection wrapper used to execute the query.
+        :type: cqlengine.ConnectionInterface subclass
+        :param kwargs: Model column values as keyword arguments.
+        
+        :return: The instance created.
         """
         extra_columns = set(kwargs.keys()) - set(cls._columns.keys())
         if extra_columns:
@@ -577,22 +578,28 @@ class BaseModel(object):
         return cls.objects.all()
 
     @classmethod
-    def filter(cls, *args, **kwargs):
+    def filter(cls, **kwargs):
         """Returns a queryset based on filter parameters.
 
         This is a pass-through to the model
         objects().:method:`~cqlengine.queries.filter`.
         """
-        return cls.objects.filter(*args, **kwargs)
+        return cls.objects.filter(**kwargs)
 
     @classmethod
-    def get(cls, conn, *args, **kwargs):
+    def get(cls, conn, **kwargs):
         """Returns a single object based on the passed filter constraints.
 
         This is a pass-through to the model
         objects().:method:`~cqlengine.queries.get`.
+
+        :param conn: Cassandra connection wrapper used to execute the query.
+        :type: cqlengine.ConnectionInterface subclass
+        :param kwargs: keyword arguments to be passed to self.filter
+
+        :return: The instance fetched from the database if it exists
         """
-        return cls.objects.get(conn, *args, **kwargs)
+        return cls.objects.get(conn, **kwargs)
 
     def timeout(self, timeout):
         """Sets a timeout for use in :meth:`~.save`, :meth:`~.update`, and
@@ -608,6 +615,11 @@ class BaseModel(object):
         """Saves an object to the database.
 
         Will perform an update if the model can.
+
+        :param conn: Cassandra connection wrapper used to execute the query.
+        :type: cqlengine.ConnectionInterface subclass
+
+        :return: self
 
         .. code-block:: python
 
@@ -649,6 +661,12 @@ class BaseModel(object):
         It is possible to do a blind update, that is, to update a field
         without having first selected the object out of the database.
         See :ref:`Blind Updates <blind_updates>`
+
+        :param conn: Cassandra connection wrapper used to execute the query.
+        :type: cqlengine.ConnectionInterface subclass
+        :param kwargs: Model column values as keyword arguments.
+
+        :return: self
         """
         for k, v in values.items():
             col = self._columns.get(k)
@@ -694,7 +712,11 @@ class BaseModel(object):
         return self
 
     def delete(self, conn):
-        """Deletes the object from the database."""
+        """Deletes the object from the database.
+
+        :param conn: Cassandra connection wrapper used to execute the query.
+        :type: cqlengine.ConnectionInterface subclass
+        """
         q = query.DeleteDMLQuery(
             self.__class__,
             self,
@@ -877,18 +899,23 @@ class ModelMetaClass(type):
 class Model(BaseModel):
     __abstract__ = True
     """
-    *Optional.* Indicates that this model is only intended to be used as a base class for other models.
-    You can't create tables for abstract models, but checks around schema validity are skipped during class construction.
+    *Optional.* Indicates that this model is only intended to be used as a 
+    base class for other models.
+    You can't create tables for abstract models, but checks around schema 
+    validity are skipped during class construction.
     """
 
     __table_name__ = None
     """
-    *Optional.* Sets the name of the CQL table for this model. If left blank, the table name will be the name of the model, with it's module name as it's prefix. Manually defined table names are not inherited.
+    *Optional.* Sets the name of the CQL table for this model. If left blank, 
+    the table name will be the name of the model, with it's module name as 
+    it's prefix. Manually defined table names are not inherited.
     """
 
     __table_name_case_sensitive__ = False
     """
-    *Optional.* By default, __table_name__ is case insensitive. Set this to True if you want to preserve the case sensitivity.
+    *Optional.* By default, __table_name__ is case insensitive. Set this to 
+    True if you want to preserve the case sensitivity.
     """
 
     __options__ = None
@@ -900,5 +927,6 @@ class Model(BaseModel):
 
     __compute_routing_key__ = True
     """
-    *Optional* Setting False disables computing the routing key for TokenAwareRouting
+    *Optional* Setting False disables computing the routing key for 
+    TokenAwareRouting
     """
