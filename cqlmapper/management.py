@@ -352,8 +352,7 @@ def _sync_type(conn, type_model, omit_subtypes=None):
     keyspace = cluster.metadata.keyspaces[ks_name]
     defined_types = keyspace.user_types
     if type_name not in defined_types:
-        msg = "sync_type creating new type {0}"
-        log.debug(msg, type_name_qualified)
+        log.debug("sync_type creating new type %s", type_name_qualified)
         cql = get_create_type(type_model, ks_name)
         conn.execute(cql)
         conn.register_udt(type_model.type_name(), type_model)
