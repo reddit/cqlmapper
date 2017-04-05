@@ -28,7 +28,6 @@ except ImportError:
     import unittest  # noqa
 
 from cassandra import (
-    ConsistencyLevel,
     OperationTimedOut,
     ReadTimeout,
     ReadFailure,
@@ -113,10 +112,7 @@ def get_connection(keyspace_name=DEFAULT_KEYSPACE):
             protocol_version=PROTOCOL_VERSION,
         )
         session = c.connect(keyspace_name)
-        _connections[keyspace_name] = connection.Connection(
-            conn=session,
-            consistency=ConsistencyLevel.ONE
-        )
+        _connections[keyspace_name] = connection.Connection(session)
     return _connections[keyspace_name]
 
 

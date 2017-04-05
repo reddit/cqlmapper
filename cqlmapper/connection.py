@@ -49,24 +49,10 @@ def check_applied(result):
 class Connection(ConnectionInterface):
     """CQLEngine Connection"""
 
-    name = None
-    hosts = None
-
-    consistency = None
-    retry_connect = False
-    lazy_connect_lock = None
-    cluster_options = None
-
-    def __init__(self, conn, consistency=None, retry_connect=False,
-                 cluster_options=None):
-        self.consistency = consistency
-        self.retry_connect = retry_connect
-        self.cluster_options = cluster_options if cluster_options else {}
+    def __init__(self, conn):
         self.cluster = conn.cluster
         self.session = conn
         self.keyspace = self.session.keyspace
-        if self.consistency is not None:
-            self.session.default_consistency_level = self.consistency
         self.session.row_factory = dict_factory
         enc = self.session.encoder
         enc.mapping[tuple] = enc.cql_encode_tuple
