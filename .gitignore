@@ -33,6 +33,7 @@ tests/unit/cython/bytesio_testhelper.c
 .settings/
 .idea/
 *.iml
+*.sublime-project
 
 .DS_Store
 
