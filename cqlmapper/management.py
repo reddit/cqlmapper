@@ -1,3 +1,5 @@
+# Modifications Copyright 2016-2017 Reddit, Inc.
+#
 # Copyright 2013-2016 DataStax, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +47,7 @@ def create_keyspace_simple(conn, name, replication_factor,
     *There are plans to guard schema-modifying functions with an
     environment-driven conditional.*
 
-    :param conn: Cassandra connection wrapper used to execute any CQL 
+    :param conn: Cassandra connection wrapper used to execute any CQL
         statements.
     :type: cqlengine.ConnectionInterface subclass
     :param name: name of keyspace to create

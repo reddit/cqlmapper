@@ -1,3 +1,5 @@
+# Modifications Copyright 2016-2017 Reddit, Inc.
+#
 # Copyright 2013-2016 DataStax, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -557,11 +559,11 @@ class BaseModel(object):
     @classmethod
     def create(cls, conn, **kwargs):
         """Create an instance of this model in the database.
-        
+
         :param conn: Cassandra connection wrapper used to execute the query.
         :type: cqlengine.ConnectionInterface subclass
         :param kwargs: Model column values as keyword arguments.
-        
+
         :return: The instance created.
         """
         extra_columns = set(kwargs.keys()) - set(cls._columns.keys())
@@ -899,22 +901,22 @@ class ModelMetaClass(type):
 class Model(BaseModel):
     __abstract__ = True
     """
-    *Optional.* Indicates that this model is only intended to be used as a 
+    *Optional.* Indicates that this model is only intended to be used as a
     base class for other models.
-    You can't create tables for abstract models, but checks around schema 
+    You can't create tables for abstract models, but checks around schema
     validity are skipped during class construction.
     """
 
     __table_name__ = None
     """
-    *Optional.* Sets the name of the CQL table for this model. If left blank, 
-    the table name will be the name of the model, with it's module name as 
+    *Optional.* Sets the name of the CQL table for this model. If left blank,
+    the table name will be the name of the model, with it's module name as
     it's prefix. Manually defined table names are not inherited.
     """
 
     __table_name_case_sensitive__ = False
     """
-    *Optional.* By default, __table_name__ is case insensitive. Set this to 
+    *Optional.* By default, __table_name__ is case insensitive. Set this to
     True if you want to preserve the case sensitivity.
     """
 
@@ -927,6 +929,6 @@ class Model(BaseModel):
 
     __compute_routing_key__ = True
     """
-    *Optional* Setting False disables computing the routing key for 
+    *Optional* Setting False disables computing the routing key for
     TokenAwareRouting
     """
