@@ -19,9 +19,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="cqlmapper",
+    version="0.0.3",
     packages=find_packages(),
     install_requires=[
         "cassandra-driver",
+        "six>=1.6",
     ],
     include_package_data=True,
     tests_require=[
