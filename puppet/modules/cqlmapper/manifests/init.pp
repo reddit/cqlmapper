@@ -14,6 +14,7 @@ class cqlmapper {
     'python-nose',
     'python-pudb',
     'python-pip',
+    'python-six',
     'ipython',
     'python3',
     'python3-setuptools',
@@ -23,10 +24,11 @@ class cqlmapper {
     'python3-nose',
     'python3-pudb',
     'python3-pip',
+    'python3-six',
   ]
 
   package { $dependencies:
-    ensure => installed,
+    ensure => latest,
     before => Exec['install app'],
   }
 
