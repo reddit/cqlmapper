@@ -1,3 +1,9 @@
+cqlmapper (0.1.0) trusty; urgency=medium
+
+  * initial release
+
+ -- Andrew Boyle <vagrant@cqlmapper.local>  Wed, 03 May 2017 22:31:40 +0000
+
 cqlmapper (0.0.3) trusty; urgency=low
 
   * debian/control: explicitly add dependencies
