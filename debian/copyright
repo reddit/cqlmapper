@@ -1,0 +1,17 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: cqlmapper
+Source: https://github.com/reddit/cqlmapper
+
+Files: *
+Copyright: 2016 reddit Inc.
+License: Apache-2.0
+
+Files: *
+Source: https://github.com/datastax/python-driver
+Copyright: 2013-2016 DataStax, Inc.
+License: Apache-2.0
+Comment: cqlmapper is a fork of cqlengine from DataStax python cassandra drivers.
+
+
+License: Apache-2.0
+	A copy of the license can be found at /usr/share/common-licenses/Apache-2.0

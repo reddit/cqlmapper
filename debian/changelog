@@ -1,0 +1,11 @@
+cqlmapper (0.0.3) trusty; urgency=low
+
+  * debian/control: explicitly add dependencies
+
+ -- Andrew Boyle <andrew.boyle@reddit.com>  Wed, 26 Apr 2017 19:11:10 +0000
+
+cqlmapper (0.0.2) trusty; urgency=low
+
+  * source package automatically created by stdeb 0.8.5
+
+ -- Andrew Boyle <andrew.boyle@reddit.com>  Wed, 26 Apr 2017 18:11:10 +0000
