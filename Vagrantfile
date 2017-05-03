@@ -6,7 +6,7 @@ Vagrant.configure(2) do |config|
   config.vm.network :forwarded_port, guest: 9090, host: 9090
 
   config.vm.provider :virtualbox do |vb|
-    vb.customize ["modifyvm", :id, "--memory", "8096"]
+    vb.customize ["modifyvm", :id, "--memory", "2048"]
   end
 
   config.vm.provision :puppet do |puppet|
