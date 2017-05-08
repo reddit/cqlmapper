@@ -18,9 +18,7 @@ Major changes:
 Example usage:
 ::
     import uuid
-    from datetime import datetime
 
-    import pytz
     from cassandra.cluster import Cluster
     from cqlmapper import columns, connection, models
     from cqlmapper.batch import Batch
