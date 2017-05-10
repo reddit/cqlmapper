@@ -17,6 +17,8 @@ services:
   - cassandra
 
 before_install:
+    - sudo sh -c "echo 'JVM_OPTS=\"\${JVM_OPTS} -Djava.net.preferIPv4Stack=false\"' >> /usr/local/cassandra/conf/cassandra-env.sh"
+    - sudo service cassandra start
     - sudo add-apt-repository -y ppa:reddit/ppa
     - sudo apt-get update -q
     - sudo apt-get install -y python-flake8 pylint python-cassandra python-six
