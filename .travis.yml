@@ -1,30 +1,29 @@
-branches:
-    only:
-        - master
-
-sudo: required
-dist: trusty
-
 language: python
 python:
-    - "2.7"
-    - "3.4"
+  - "2.7"
+  - "3.3"
+  - "3.4"
+  - "3.5"
+  - "3.6"
+  - "pypy-5.4.1"
 
-virtualenv:
-    system_site_packages: true
+sudo: false
+env:
+  - CASS_DRIVER_NO_CYTHON=1
+  -
 
-services:
-  - cassandra
-
-before_install:
-    - sudo sh -c "echo 'JVM_OPTS=\"\${JVM_OPTS} -Djava.net.preferIPv4Stack=false\"' >> /usr/local/cassandra/conf/cassandra-env.sh"
-    - sudo service cassandra start
-    - sudo add-apt-repository -y ppa:reddit/ppa
-    - sudo apt-get update -q
-    - sudo apt-get install -y python-flake8 pylint python-cassandra python-six
+addons:
+  apt:
+    packages:
+    - build-essential
+    - python-dev
+    - pypy-dev
+    - libev4
+    - libev-dev
 
 install:
-    - pip install coverage
+  - pip install tox-travis
 
 script:
-    - nosetests
+  - tox
+  - tox -e patched_loops
