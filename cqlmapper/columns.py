@@ -382,6 +382,29 @@ class Ascii(Text):
         return value
 
 
+class OneOf(Column):
+    def __init__(self, value, options=(), required=True):
+        self.val = super(OneOf, self).__init__(required=required)
+        self.options = options
+        self.required = required
+
+    def validate(self, val):
+        if not val and not self.required:
+            return val
+        if self.options and val not in self.options:
+            raise ValidationError(
+                "{0} is not one of {1}".format(val, self.options)
+            )
+        else:
+            return val
+
+    def to_python(self, value):
+        return self.validate(value)
+
+    def to_database(self, value):
+        return self.validate(value)
+
+
 class Integer(Column):
     """
     Stores a 32-bit signed integer value
