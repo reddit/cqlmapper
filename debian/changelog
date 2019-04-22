@@ -1,3 +1,9 @@
+cqlmapper (0.1.1) trusty; urgency=low
+
+  * cut version 0.1.1
+
+ -- Andrew Boyle <vagrant@cqlmapper.local>  Tue, 19 Mar 2019 19:33:31 +0000
+
 cqlmapper (0.1.0) trusty; urgency=medium
 
   * initial release
