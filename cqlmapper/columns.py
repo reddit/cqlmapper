@@ -13,15 +13,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from copy import deepcopy, copy
-from datetime import date, datetime, timedelta
 import logging
-import six
+
+from copy import copy
+from copy import deepcopy
+from datetime import date
+from datetime import datetime
+from datetime import timedelta
 from uuid import UUID as _UUID
 
+import six
+
 from cassandra import util
-from cassandra.cqltypes import SimpleDateType, _cqltypes, UserType
+from cassandra.cqltypes import _cqltypes
+from cassandra.cqltypes import SimpleDateType
+from cassandra.cqltypes import UserType
+
 from cqlmapper import ValidationError
 from cqlmapper.functions import get_total_seconds
 
@@ -29,7 +36,6 @@ log = logging.getLogger(__name__)
 
 
 class BaseValueManager(object):
-
     def __init__(self, instance, column, value):
         self.instance = instance
         self.column = column
@@ -39,7 +45,9 @@ class BaseValueManager(object):
 
     @property
     def deleted(self):
-        return self.column._val_is_null(self.value) and (self.explicit or self.previous_value is not None)
+        return self.column._val_is_null(self.value) and (
+            self.explicit or self.previous_value is not None
+        )
 
     @property
     def changed(self):
@@ -129,15 +137,17 @@ class Column(object):
     boolean, if set to True, this is a static column, with a single value per partition
     """
 
-    def __init__(self,
-                 primary_key=False,
-                 partition_key=False,
-                 index=False,
-                 db_field=None,
-                 default=None,
-                 required=False,
-                 clustering_order=None,
-                 static=False):
+    def __init__(
+        self,
+        primary_key=False,
+        partition_key=False,
+        index=False,
+        db_field=None,
+        default=None,
+        required=False,
+        clustering_order=None,
+        static=False,
+    ):
         self.partition_key = partition_key
         self.primary_key = partition_key or primary_key
         self.index = index
@@ -197,7 +207,9 @@ class Column(object):
         """
         if value is None:
             if self.required:
-                raise ValidationError('{0} - None values are not allowed'.format(self.column_name or self.db_field))
+                raise ValidationError(
+                    "{0} - None values are not allowed".format(self.column_name or self.db_field)
+                )
         return value
 
     def to_python(self, value):
@@ -239,7 +251,7 @@ class Column(object):
         Returns a column definition for CQL table definition
         """
         static = "static" if self.static else ""
-        return '{0} {1} {2}'.format(self.cql, self.db_type, static)
+        return "{0} {1} {2}".format(self.cql, self.db_type, static)
 
     # TODO: make columns use cqltypes under the hood
     # until then, this bridges the gap in using types along with cassandra.metadata for CQL generation
@@ -261,7 +273,7 @@ class Column(object):
     @property
     def db_index_name(self):
         """ Returns the name of the cql index """
-        return 'index_{0}'.format(self.db_field_name)
+        return "index_{0}".format(self.db_field_name)
 
     @property
     def cql(self):
@@ -287,7 +299,8 @@ class Blob(Column):
     """
     Stores a raw binary value
     """
-    db_type = 'blob'
+
+    db_type = "blob"
 
     def to_database(self, value):
 
@@ -305,14 +318,16 @@ class Inet(Column):
     """
     Stores an IP address in IPv4 or IPv6 format
     """
-    db_type = 'inet'
+
+    db_type = "inet"
 
 
 class Text(Column):
     """
     Stores a UTF-8 encoded string
     """
-    db_type = 'text'
+
+    db_type = "text"
 
     def __init__(self, min_length=None, max_length=None, **kwargs):
         """
@@ -320,39 +335,37 @@ class Text(Column):
             Defaults to 1 if this is a ``required`` column. Otherwise, None.
         :param int max_length: Sets the maximum length of this string, for validation purposes.
         """
-        self.min_length = (
-            1 if not min_length and kwargs.get('required', False)
-            else min_length)
+        self.min_length = 1 if not min_length and kwargs.get("required", False) else min_length
         self.max_length = max_length
 
         if self.min_length is not None:
             if self.min_length < 0:
-                raise ValueError(
-                    'Minimum length is not allowed to be negative.')
+                raise ValueError("Minimum length is not allowed to be negative.")
 
         if self.max_length is not None:
             if self.max_length < 0:
-                raise ValueError(
-                    'Maximum length is not allowed to be negative.')
+                raise ValueError("Maximum length is not allowed to be negative.")
 
         if self.min_length is not None and self.max_length is not None:
             if self.max_length < self.min_length:
-                raise ValueError(
-                    'Maximum length must be greater or equal '
-                    'to minimum length.')
+                raise ValueError("Maximum length must be greater or equal " "to minimum length.")
 
         super(Text, self).__init__(**kwargs)
 
     def validate(self, value):
         value = super(Text, self).validate(value)
         if not isinstance(value, (six.string_types, bytearray)) and value is not None:
-            raise ValidationError('{0} {1} is not a string'.format(self.column_name, type(value)))
+            raise ValidationError("{0} {1} is not a string".format(self.column_name, type(value)))
         if self.max_length is not None:
             if value and len(value) > self.max_length:
-                raise ValidationError('{0} is longer than {1} characters'.format(self.column_name, self.max_length))
+                raise ValidationError(
+                    "{0} is longer than {1} characters".format(self.column_name, self.max_length)
+                )
         if self.min_length:
             if (self.min_length and not value) or len(value) < self.min_length:
-                raise ValidationError('{0} is shorter than {1} characters'.format(self.column_name, self.min_length))
+                raise ValidationError(
+                    "{0} is shorter than {1} characters".format(self.column_name, self.min_length)
+                )
         return value
 
 
@@ -360,7 +373,8 @@ class Ascii(Text):
     """
     Stores a US-ASCII character string
     """
-    db_type = 'ascii'
+
+    db_type = "ascii"
 
     def validate(self, value):
         """ Only allow ASCII and None values.
@@ -374,11 +388,9 @@ class Ascii(Text):
         """
         value = super(Ascii, self).validate(value)
         if value:
-            charset = value if isinstance(
-                value, (bytearray, )) else map(ord, value)
+            charset = value if isinstance(value, (bytearray,)) else map(ord, value)
             if not set(range(128)).issuperset(charset):
-                raise ValidationError(
-                    '{!r} is not an ASCII string.'.format(value))
+                raise ValidationError("{!r} is not an ASCII string.".format(value))
         return value
 
 
@@ -387,7 +399,7 @@ class Integer(Column):
     Stores a 32-bit signed integer value
     """
 
-    db_type = 'int'
+    db_type = "int"
 
     def validate(self, value):
         val = super(Integer, self).validate(value)
@@ -396,7 +408,9 @@ class Integer(Column):
         try:
             return int(val)
         except (TypeError, ValueError):
-            raise ValidationError("{0} {1} can't be converted to integral value".format(self.column_name, value))
+            raise ValidationError(
+                "{0} {1} can't be converted to integral value".format(self.column_name, value)
+            )
 
     def to_python(self, value):
         return self.validate(value)
@@ -413,7 +427,8 @@ class TinyInt(Integer):
 
     requires C* 2.2+ and protocol v4+
     """
-    db_type = 'tinyint'
+
+    db_type = "tinyint"
 
 
 class SmallInt(Integer):
@@ -424,21 +439,24 @@ class SmallInt(Integer):
 
     requires C* 2.2+ and protocol v4+
     """
-    db_type = 'smallint'
+
+    db_type = "smallint"
 
 
 class BigInt(Integer):
     """
     Stores a 64-bit signed integer value
     """
-    db_type = 'bigint'
+
+    db_type = "bigint"
 
 
 class VarInt(Column):
     """
     Stores an arbitrary-precision integer
     """
-    db_type = 'varint'
+
+    db_type = "varint"
 
     def validate(self, value):
         val = super(VarInt, self).validate(value)
@@ -448,7 +466,8 @@ class VarInt(Column):
             return int(val)
         except (TypeError, ValueError):
             raise ValidationError(
-                "{0} {1} can't be converted to integral value".format(self.column_name, value))
+                "{0} {1} can't be converted to integral value".format(self.column_name, value)
+            )
 
     def to_python(self, value):
         return self.validate(value)
@@ -468,14 +487,12 @@ class Counter(Integer):
     """
     Stores a counter that can be inremented and decremented
     """
-    db_type = 'counter'
+
+    db_type = "counter"
 
     value_manager = CounterValueManager
 
-    def __init__(self,
-                 index=False,
-                 db_field=None,
-                 required=False):
+    def __init__(self, index=False, db_field=None, required=False):
         super(Counter, self).__init__(
             primary_key=False,
             partition_key=False,
@@ -490,7 +507,8 @@ class DateTime(Column):
     """
     Stores a datetime value
     """
-    db_type = 'timestamp'
+
+    db_type = "timestamp"
 
     truncate_microseconds = False
     """
@@ -528,7 +546,9 @@ class DateTime(Column):
             if isinstance(value, date):
                 value = datetime(value.year, value.month, value.day)
             else:
-                raise ValidationError("{0} '{1}' is not a datetime object".format(self.column_name, value))
+                raise ValidationError(
+                    "{0} '{1}' is not a datetime object".format(self.column_name, value)
+                )
         epoch = datetime(1970, 1, 1, tzinfo=value.tzinfo)
         offset = get_total_seconds(epoch.tzinfo.utcoffset(epoch)) if epoch.tzinfo else 0
 
@@ -545,7 +565,8 @@ class Date(Column):
 
     requires C* 2.2+ and protocol v4+
     """
-    db_type = 'date'
+
+    db_type = "date"
 
     def to_database(self, value):
         value = super(Date, self).to_database(value)
@@ -566,7 +587,8 @@ class Time(Column):
 
     requires C* 2.2+ and protocol v4+
     """
-    db_type = 'time'
+
+    db_type = "time"
 
     def to_database(self, value):
         value = super(Time, self).to_database(value)
@@ -580,7 +602,8 @@ class UUID(Column):
     """
     Stores a type 1 or 4 UUID
     """
-    db_type = 'uuid'
+
+    db_type = "uuid"
 
     def validate(self, value):
         val = super(UUID, self).validate(value)
@@ -594,8 +617,7 @@ class UUID(Column):
             except ValueError:
                 # fall-through to error
                 pass
-        raise ValidationError("{0} {1} is not a valid uuid".format(
-            self.column_name, value))
+        raise ValidationError("{0} {1} is not a valid uuid".format(self.column_name, value))
 
     def to_python(self, value):
         return self.validate(value)
@@ -609,14 +631,15 @@ class TimeUUID(UUID):
     UUID containing timestamp
     """
 
-    db_type = 'timeuuid'
+    db_type = "timeuuid"
 
 
 class Boolean(Column):
     """
     Stores a boolean True or False value
     """
-    db_type = 'boolean'
+
+    db_type = "boolean"
 
     def validate(self, value):
         """ Always returns a Python boolean. """
@@ -652,32 +675,38 @@ class Float(BaseFloat):
     """
     Stores a single-precision floating-point value
     """
-    db_type = 'float'
+
+    db_type = "float"
 
 
 class Double(BaseFloat):
     """
     Stores a double-precision floating-point value
     """
-    db_type = 'double'
+
+    db_type = "double"
 
 
 class Decimal(Column):
     """
     Stores a variable precision decimal value
     """
-    db_type = 'decimal'
+
+    db_type = "decimal"
 
     def validate(self, value):
         from decimal import Decimal as _Decimal
         from decimal import InvalidOperation
+
         val = super(Decimal, self).validate(value)
         if val is None:
             return
         try:
             return _Decimal(repr(val)) if isinstance(val, float) else _Decimal(val)
         except InvalidOperation:
-            raise ValidationError("{0} '{1}' can't be coerced to decimal".format(self.column_name, val))
+            raise ValidationError(
+                "{0} '{1}' can't be coerced to decimal".format(self.column_name, val)
+            )
 
     def to_python(self, value):
         return self.validate(value)
@@ -692,6 +721,7 @@ class BaseCollectionColumn(Column):
 
     http://cassandra.apache.org/doc/cql3/CQL-3.0.html#collections
     """
+
     def __init__(self, types, **kwargs):
         """
         :param types: a sequence of sub types in this collection
@@ -716,14 +746,16 @@ class BaseCollectionColumn(Column):
         # It is dangerous to let collections have more than 65535.
         # See: https://issues.apache.org/jira/browse/CASSANDRA-5428
         if value is not None and len(value) > 65535:
-            raise ValidationError("{0} Collection can't have more than 65535 elements.".format(self.column_name))
+            raise ValidationError(
+                "{0} Collection can't have more than 65535 elements.".format(self.column_name)
+            )
         return value
 
     def _val_is_null(self, val):
         return not val
 
     def _freeze_db_type(self):
-        if not self.db_type.startswith('frozen'):
+        if not self.db_type.startswith("frozen"):
             self.db_type = "frozen<%s>" % (self.db_type,)
 
     @property
@@ -732,7 +764,9 @@ class BaseCollectionColumn(Column):
 
     @property
     def cql_type(self):
-        return _cqltypes[self.__class__.__name__.lower()].apply_parameters([c.cql_type for c in self.types])
+        return _cqltypes[self.__class__.__name__.lower()].apply_parameters(
+            [c.cql_type for c in self.types]
+        )
 
 
 class Tuple(BaseCollectionColumn):
@@ -741,6 +775,7 @@ class Tuple(BaseCollectionColumn):
 
     http://docs.datastax.com/en/cql/3.1/cql/cql_reference/tupleType.html
     """
+
     def __init__(self, *args, **kwargs):
         """
         :param args: column types representing tuple composition
@@ -748,15 +783,17 @@ class Tuple(BaseCollectionColumn):
         if not args:
             raise ValueError("Tuple must specify at least one inner type")
         super(Tuple, self).__init__(args, **kwargs)
-        self.db_type = 'tuple<{0}>'.format(', '.join(typ.db_type for typ in self.types))
+        self.db_type = "tuple<{0}>".format(", ".join(typ.db_type for typ in self.types))
 
     def validate(self, value):
         val = super(Tuple, self).validate(value)
         if val is None:
             return
         if len(val) > len(self.types):
-            raise ValidationError("Value %r has more fields than tuple definition (%s)" %
-                                  (val, ', '.join(t for t in self.types)))
+            raise ValidationError(
+                "Value %r has more fields than tuple definition (%s)"
+                % (val, ", ".join(t for t in self.types))
+            )
         return tuple(t.validate(v) for t, v in zip(self.types, val))
 
     def to_python(self, value):
@@ -794,7 +831,7 @@ class Set(BaseContainerColumn):
         self.value_col = self.types[0]
         if not self.value_col._python_type_hashable:
             raise ValidationError("Cannot create a Set with unhashable value type (see PYTHON-494)")
-        self.db_type = 'set<{0}>'.format(self.value_col.db_type)
+        self.db_type = "set<{0}>".format(self.value_col.db_type)
 
     def validate(self, value):
         val = super(Set, self).validate(value)
@@ -803,9 +840,11 @@ class Set(BaseContainerColumn):
         types = (set, util.SortedSet) if self.strict else (set, util.SortedSet, list, tuple)
         if not isinstance(val, types):
             if self.strict:
-                raise ValidationError('{0} {1} is not a set object'.format(self.column_name, val))
+                raise ValidationError("{0} {1} is not a set object".format(self.column_name, val))
             else:
-                raise ValidationError('{0} {1} cannot be coerced to a set object'.format(self.column_name, val))
+                raise ValidationError(
+                    "{0} {1} cannot be coerced to a set object".format(self.column_name, val)
+                )
 
         if None in val:
             raise ValidationError("{0} None not allowed in a set".format(self.column_name))
@@ -839,14 +878,14 @@ class List(BaseContainerColumn):
         """
         super(List, self).__init__((value_type,), default=default, **kwargs)
         self.value_col = self.types[0]
-        self.db_type = 'list<{0}>'.format(self.value_col.db_type)
+        self.db_type = "list<{0}>".format(self.value_col.db_type)
 
     def validate(self, value):
         val = super(List, self).validate(value)
         if val is None:
             return
         if not isinstance(val, (set, list, tuple)):
-            raise ValidationError('{0} {1} is not a list object'.format(self.column_name, val))
+            raise ValidationError("{0} {1} is not a list object".format(self.column_name, val))
         if None in val:
             raise ValidationError("{0} None is not allowed in a list".format(self.column_name))
         return [self.value_col.validate(v) for v in val]
@@ -883,14 +922,14 @@ class Map(BaseContainerColumn):
         if not self.key_col._python_type_hashable:
             raise ValidationError("Cannot create a Map with unhashable key type (see PYTHON-494)")
 
-        self.db_type = 'map<{0}, {1}>'.format(self.key_col.db_type, self.value_col.db_type)
+        self.db_type = "map<{0}, {1}>".format(self.key_col.db_type, self.value_col.db_type)
 
     def validate(self, value):
         val = super(Map, self).validate(value)
         if val is None:
             return
         if not isinstance(val, (dict, util.OrderedMap)):
-            raise ValidationError('{0} {1} is not a dict object'.format(self.column_name, val))
+            raise ValidationError("{0} {1} is not a dict object".format(self.column_name, val))
         if None in val:
             raise ValidationError("{0} None is not allowed in a map".format(self.column_name))
         # TODO: stop doing this conversion because it doesn't support non-hashable collections as keys (cassandra does)
@@ -901,18 +940,24 @@ class Map(BaseContainerColumn):
         if value is None:
             return {}
         if value is not None:
-            return dict((self.key_col.to_python(k), self.value_col.to_python(v)) for k, v in value.items())
+            return dict(
+                (self.key_col.to_python(k), self.value_col.to_python(v)) for k, v in value.items()
+            )
 
     def to_database(self, value):
         if value is None:
             return None
-        return dict((self.key_col.to_database(k), self.value_col.to_database(v)) for k, v in value.items())
+        return dict(
+            (self.key_col.to_database(k), self.value_col.to_database(v)) for k, v in value.items()
+        )
 
 
 class UDTValueManager(BaseValueManager):
     @property
     def changed(self):
-        return self.value != self.previous_value or (self.value is not None and self.value.has_changed_fields())
+        return self.value != self.previous_value or (
+            self.value is not None and self.value.has_changed_fields()
+        )
 
     def reset_previous_value(self):
         if self.value is not None:
@@ -947,9 +992,12 @@ class UserDefinedType(Column):
 
     @property
     def cql_type(self):
-        return UserType.make_udt_class(keyspace='', udt_name=self.user_type.type_name(),
-                                       field_names=[c.db_field_name for c in self.user_type._fields.values()],
-                                       field_types=[c.cql_type for c in self.user_type._fields.values()])
+        return UserType.make_udt_class(
+            keyspace="",
+            udt_name=self.user_type.type_name(),
+            field_names=[c.db_field_name for c in self.user_type._fields.values()],
+            field_types=[c.cql_type for c in self.user_type._fields.values()],
+        )
 
 
 def resolve_udts(col_def, out_list):
@@ -971,4 +1019,6 @@ class _PartitionKeysToken(Column):
 
     @property
     def db_field_name(self):
-        return 'token({0})'.format(', '.join(['"{0}"'.format(c.db_field_name) for c in self.partition_columns]))
+        return "token({0})".format(
+            ", ".join(['"{0}"'.format(c.db_field_name) for c in self.partition_columns])
+        )

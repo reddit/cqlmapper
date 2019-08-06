@@ -13,23 +13,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from datetime import datetime, timedelta
 import json
 import logging
-import six
 import sys
 import traceback
-from uuid import uuid4
 
-from cassandra import WriteTimeout
-import cqlmapper.columns as columns
-from cqlmapper.functions import get_total_seconds
-from cqlmapper.models import Model, ValidationError
-from cqlmapper.management import sync_table, drop_table
+from datetime import datetime
+from datetime import timedelta
+from tests.integration import CASSANDRA_VERSION
 from tests.integration import is_prepend_reversed
 from tests.integration.base import BaseCassEngTestCase
-from tests.integration import CASSANDRA_VERSION
+from uuid import uuid4
+
+import six
+
+from cassandra import WriteTimeout
+
+import cqlmapper.columns as columns
+
+from cqlmapper.functions import get_total_seconds
+from cqlmapper.management import drop_table
+from cqlmapper.management import sync_table
+from cqlmapper.models import Model
+from cqlmapper.models import ValidationError
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +48,7 @@ class TestSetModel(Model):
 
 class JsonTestColumn(columns.Column):
 
-    db_type = 'text'
+    db_type = "text"
 
     def to_python(self, value):
         if value is None:
@@ -59,7 +65,6 @@ class JsonTestColumn(columns.Column):
 
 
 class TestSetColumn(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestSetColumn, cls).setUpClass()
@@ -73,12 +78,7 @@ class TestSetColumn(BaseCassEngTestCase):
         drop_table(cls.connection(), TestSetModel)
 
     def test_add_none_fails(self):
-        self.assertRaises(
-            ValidationError,
-            TestSetModel.create,
-            self.conn,
-            int_set=set([None])
-        )
+        self.assertRaises(ValidationError, TestSetModel.create, self.conn, int_set=set([None]))
 
     def test_empty_set_initial(self):
         """
@@ -104,9 +104,7 @@ class TestSetColumn(BaseCassEngTestCase):
         m.int_set.add(5)
         m.save(self.conn)
 
-        TestSetModel.objects(
-            partition=m.partition
-        ).update(self.conn, int_set=set())
+        TestSetModel.objects(partition=m.partition).update(self.conn, int_set=set())
 
         m = TestSetModel.get(self.conn, partition=m.partition)
         self.assertTrue(5 not in m.int_set)
@@ -118,11 +116,7 @@ class TestSetColumn(BaseCassEngTestCase):
 
     def test_io_success(self):
         """ Tests that a basic usage works as expected """
-        m1 = TestSetModel.create(
-            self.conn,
-            int_set=set((1, 2)),
-            text_set=set(('kai', 'andreas')),
-        )
+        m1 = TestSetModel.create(self.conn, int_set=set((1, 2)), text_set=set(("kai", "andreas")))
         m2 = TestSetModel.get(self.conn, partition=m1.partition)
 
         self.assertIsInstance(m2.int_set, set)
@@ -131,8 +125,8 @@ class TestSetColumn(BaseCassEngTestCase):
         self.assertIn(1, m2.int_set)
         self.assertIn(2, m2.int_set)
 
-        self.assertIn('kai', m2.text_set)
-        self.assertIn('andreas', m2.text_set)
+        self.assertIn("kai", m2.text_set)
+        self.assertIn("andreas", m2.text_set)
 
     def test_type_validation(self):
         """
@@ -142,7 +136,7 @@ class TestSetColumn(BaseCassEngTestCase):
             ValidationError,
             TestSetModel.create,
             self.conn,
-            int_set=set(('string', True)),
+            int_set=set(("string", True)),
             text_set=set((1, 3.0)),
         )
 
@@ -152,19 +146,12 @@ class TestSetColumn(BaseCassEngTestCase):
         """
         while True:
             try:
-                TestSetModel.create(
-                    self.conn,
-                    text_set=set(str(uuid4()) for i in range(65535)),
-                )
+                TestSetModel.create(self.conn, text_set=set(str(uuid4()) for i in range(65535)))
                 break
             except WriteTimeout:
                 ex_type, ex, tb = sys.exc_info()
                 log.warn(
-                    "{0}: {1} Backtrace: {2}".format(
-                        ex_type.__name__,
-                        ex,
-                        traceback.extract_tb(tb),
-                    )
+                    "{0}: {1} Backtrace: {2}".format(ex_type.__name__, ex, traceback.extract_tb(tb))
                 )
                 del tb
         self.assertRaises(
@@ -232,7 +219,6 @@ class TestListModel(Model):
 
 
 class TestListColumn(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestListColumn, cls).setUpClass()
@@ -256,11 +242,7 @@ class TestListColumn(BaseCassEngTestCase):
 
     def test_io_success(self):
         """ Tests that a basic usage works as expected """
-        m1 = TestListModel.create(
-            self.conn,
-            int_list=[1, 2],
-            text_list=['kai', 'andreas']
-        )
+        m1 = TestListModel.create(self.conn, int_list=[1, 2], text_list=["kai", "andreas"])
         m2 = TestListModel.get(self.conn, partition=m1.partition)
 
         self.assertIsInstance(m2.int_list, list)
@@ -272,8 +254,8 @@ class TestListColumn(BaseCassEngTestCase):
         self.assertEqual(m2.int_list[0], 1)
         self.assertEqual(m2.int_list[1], 2)
 
-        self.assertEqual(m2.text_list[0], 'kai')
-        self.assertEqual(m2.text_list[1], 'andreas')
+        self.assertEqual(m2.text_list[0], "kai")
+        self.assertEqual(m2.text_list[1], "andreas")
 
     def test_type_validation(self):
         """
@@ -283,7 +265,7 @@ class TestListColumn(BaseCassEngTestCase):
             ValidationError,
             TestListModel.create,
             self.conn,
-            int_list=['string', True],
+            int_list=["string", True],
             text_list=[1, 3.0],
         )
 
@@ -293,19 +275,12 @@ class TestListColumn(BaseCassEngTestCase):
         """
         while True:
             try:
-                TestListModel.create(
-                    self.conn,
-                    text_list=[str(uuid4()) for i in range(65535)]
-                )
+                TestListModel.create(self.conn, text_list=[str(uuid4()) for i in range(65535)])
                 break
             except WriteTimeout:
                 ex_type, ex, tb = sys.exc_info()
                 log.warn(
-                    "{0}: {1} Backtrace: {2}".format(
-                        ex_type.__name__,
-                        ex,
-                        traceback.extract_tb(tb)
-                    )
+                    "{0}: {1} Backtrace: {2}".format(ex_type.__name__, ex, traceback.extract_tb(tb))
                 )
                 del tb
         self.assertRaises(
@@ -388,11 +363,7 @@ class TestListColumn(BaseCassEngTestCase):
     def test_insert_none(self):
         pkey = uuid4()
         self.assertRaises(
-            ValidationError,
-            TestListModel.create,
-            self.conn,
-            partition=pkey,
-            int_list=[None],
+            ValidationError, TestListModel.create, self.conn, partition=pkey, int_list=[None]
         )
 
     def test_blind_list_updates_from_none(self):
@@ -405,9 +376,7 @@ class TestListColumn(BaseCassEngTestCase):
         m2 = TestListModel.get(self.conn, partition=m.partition)
         self.assertEqual(m2.int_list, expected)
 
-        TestListModel.objects(
-            partition=m.partition
-        ).update(self.conn, int_list=[])
+        TestListModel.objects(partition=m.partition).update(self.conn, int_list=[])
 
         m3 = TestListModel.get(self.conn, partition=m.partition)
         self.assertEqual(m3.int_list, [])
@@ -420,7 +389,6 @@ class TestMapModel(Model):
 
 
 class TestMapColumn(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestMapColumn, cls).setUpClass()
@@ -435,20 +403,15 @@ class TestMapColumn(BaseCassEngTestCase):
 
     def test_empty_default(self):
         tmp = TestMapModel.create(self.conn)
-        tmp.int_map['blah'] = 1
+        tmp.int_map["blah"] = 1
 
     def test_add_none_as_map_key(self):
-        self.assertRaises(
-            ValidationError,
-            TestMapModel.create,
-            self.conn,
-            int_map={None: uuid4()},
-        )
+        self.assertRaises(ValidationError, TestMapModel.create, self.conn, int_map={None: uuid4()})
 
     def test_empty_retrieve(self):
         tmp = TestMapModel.create(self.conn)
         tmp2 = TestMapModel.get(self.conn, partition=tmp.partition)
-        tmp2.int_map['blah'] = 1
+        tmp2.int_map["blah"] = 1
 
     def test_remove_last_entry_works(self):
         tmp = TestMapModel.create(self.conn)
@@ -467,9 +430,7 @@ class TestMapColumn(BaseCassEngTestCase):
         now = datetime.now()
         then = now + timedelta(days=1)
         m1 = TestMapModel.create(
-            self.conn,
-            int_map={1: k1, 2: k2},
-            text_map={'now': now, 'then': then},
+            self.conn, int_map={1: k1, 2: k2}, text_map={"now": now, "then": then}
         )
         m2 = TestMapModel.get(self.conn, partition=m1.partition)
 
@@ -481,12 +442,8 @@ class TestMapColumn(BaseCassEngTestCase):
         self.assertEqual(m2.int_map[1], k1)
         self.assertEqual(m2.int_map[2], k2)
 
-        self.assertAlmostEqual(
-            get_total_seconds(now - m2.text_map['now']), 0, 2
-        )
-        self.assertAlmostEqual(
-            get_total_seconds(then - m2.text_map['then']), 0, 2
-        )
+        self.assertAlmostEqual(get_total_seconds(now - m2.text_map["now"]), 0, 2)
+        self.assertAlmostEqual(get_total_seconds(then - m2.text_map["then"]), 0, 2)
 
     def test_type_validation(self):
         """
@@ -496,7 +453,7 @@ class TestMapColumn(BaseCassEngTestCase):
             ValidationError,
             TestMapModel.create,
             self.conn,
-            int_map={'key': 2, uuid4(): 'val'},
+            int_map={"key": 2, uuid4(): "val"},
             text_map={2: 5},
         )
 
@@ -507,18 +464,13 @@ class TestMapColumn(BaseCassEngTestCase):
         while True:
             try:
                 TestMapModel.create(
-                    self.conn,
-                    text_map=dict((str(uuid4()), i) for i in range(65535))
+                    self.conn, text_map=dict((str(uuid4()), i) for i in range(65535))
                 )
                 break
             except WriteTimeout:
                 ex_type, ex, tb = sys.exc_info()
                 log.warn(
-                    "{0}: {1} Backtrace: {2}".format(
-                        ex_type.__name__,
-                        ex,
-                        traceback.extract_tb(tb)
-                    )
+                    "{0}: {1} Backtrace: {2}".format(ex_type.__name__, ex, traceback.extract_tb(tb))
                 )
                 del tb
         self.assertRaises(
@@ -537,8 +489,8 @@ class TestMapColumn(BaseCassEngTestCase):
         earlier = early - timedelta(minutes=30)
         later = now + timedelta(minutes=30)
 
-        initial = {'now': now, 'early': earlier}
-        final = {'later': later, 'early': early}
+        initial = {"now": now, "early": earlier}
+        final = {"later": later, "early": early}
 
         m1 = TestMapModel.create(self.conn, text_map=initial)
 
@@ -573,9 +525,7 @@ class TestMapColumn(BaseCassEngTestCase):
         m2 = TestMapModel.get(self.conn, partition=m.partition)
         self.assertEqual(m2.int_map, expected)
 
-        TestMapModel.objects(
-            partition=m.partition
-        ).update(self.conn, int_map={})
+        TestMapModel.objects(partition=m.partition).update(self.conn, int_map={})
 
         m3 = TestMapModel.get(self.conn, partition=m.partition)
         self.assertNotEqual(m3.int_map, expected)
@@ -635,7 +585,6 @@ class TestCamelMapModel(Model):
 
 
 class TestCamelMapColumn(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestCamelMapColumn, cls).setUpClass()
@@ -649,29 +598,18 @@ class TestCamelMapColumn(BaseCassEngTestCase):
         drop_table(cls.connection(), TestCamelMapModel)
 
     def test_camelcase_column(self):
-        TestCamelMapModel.create(self.conn, camelMap={'blah': 1})
+        TestCamelMapModel.create(self.conn, camelMap={"blah": 1})
 
 
 class TestTupleModel(Model):
 
     partition = columns.UUID(primary_key=True, default=uuid4)
-    int_tuple = columns.Tuple(
-        columns.Integer,
-        columns.Integer,
-        columns.Integer,
-        required=False,
-    )
+    int_tuple = columns.Tuple(columns.Integer, columns.Integer, columns.Integer, required=False)
     text_tuple = columns.Tuple(columns.Text, columns.Text, required=False)
-    mixed_tuple = columns.Tuple(
-        columns.Text,
-        columns.Integer,
-        columns.Text,
-        required=False,
-    )
+    mixed_tuple = columns.Tuple(columns.Text, columns.Integer, columns.Text, required=False)
 
 
 class TestTupleColumn(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestTupleColumn, cls).setUpClass()
@@ -727,8 +665,8 @@ class TestTupleColumn(BaseCassEngTestCase):
         m1 = TestTupleModel.create(
             self.conn,
             int_tuple=(1, 2, 3, 5, 6),
-            text_tuple=('kai', 'andreas'),
-            mixed_tuple=('first', 2, 'Third'),
+            text_tuple=("kai", "andreas"),
+            mixed_tuple=("first", 2, "Third"),
         )
         m2 = TestTupleModel.get(self.conn, partition=m1.partition)
 
@@ -737,8 +675,8 @@ class TestTupleColumn(BaseCassEngTestCase):
         self.assertIsInstance(m2.mixed_tuple, tuple)
 
         self.assertEqual((1, 2, 3), m2.int_tuple)
-        self.assertEqual(('kai', 'andreas'), m2.text_tuple)
-        self.assertEqual(('first', 2, 'Third'), m2.mixed_tuple)
+        self.assertEqual(("kai", "andreas"), m2.text_tuple)
+        self.assertEqual(("first", 2, "Third"), m2.mixed_tuple)
 
     def test_type_validation(self):
         """
@@ -754,24 +692,24 @@ class TestTupleColumn(BaseCassEngTestCase):
             ValidationError,
             TestTupleModel.create,
             self.conn,
-            int_tuple=('string', True),
-            text_tuple=('test', 'test'),
-            mixed_tuple=('one', 2, 'three'),
+            int_tuple=("string", True),
+            text_tuple=("test", "test"),
+            mixed_tuple=("one", 2, "three"),
         )
         self.assertRaises(
             ValidationError,
             TestTupleModel.create,
             self.conn,
-            int_tuple=('string', 'string'),
+            int_tuple=("string", "string"),
             text_tuple=(1, 3.0),
-            mixed_tuple=('one', 2, 'three'),
+            mixed_tuple=("one", 2, "three"),
         )
         self.assertRaises(
             ValidationError,
             TestTupleModel.create,
             self.conn,
-            int_tuple=('string', 'string'),
-            text_tuple=('test', 'test'),
+            int_tuple=("string", "string"),
+            text_tuple=("test", "test"),
             mixed_tuple=(1, "two", 3),
         )
 
@@ -786,12 +724,7 @@ class TestTupleColumn(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        mixed_tuple = columns.Tuple(
-            columns.Text,
-            columns.Integer,
-            columns.Text,
-            required=False,
-        )
+        mixed_tuple = columns.Tuple(columns.Text, columns.Integer, columns.Text, required=False)
         self.assertIsInstance(mixed_tuple.types[0], columns.Text)
         self.assertIsInstance(mixed_tuple.types[1], columns.Integer)
         self.assertIsInstance(mixed_tuple.types[2], columns.Text)
@@ -848,12 +781,8 @@ class TestTupleColumn(BaseCassEngTestCase):
         @test_category object_mapper
         """
         pkey = uuid4()
-        tmp = TestTupleModel.create(
-            self.conn,
-            partition=pkey,
-            int_tuple=(1, 2, 3),
-        )
-        tmp.int_tuple = (None)
+        tmp = TestTupleModel.create(self.conn, partition=pkey, int_tuple=(1, 2, 3))
+        tmp.int_tuple = None
         tmp.update(self.conn)
 
         tmp = TestTupleModel.get(self.conn, partition=pkey)
@@ -870,11 +799,7 @@ class TestTupleColumn(BaseCassEngTestCase):
         @test_category object_mapper
         """
         pkey = uuid4()
-        tmp = TestTupleModel.create(
-            self.conn,
-            partition=pkey,
-            int_tuple=(None),
-        )
+        tmp = TestTupleModel.create(self.conn, partition=pkey, int_tuple=(None))
         self.assertEqual((None), tmp.int_tuple)
 
     def test_blind_tuple_updates_from_none(self):
@@ -897,9 +822,7 @@ class TestTupleColumn(BaseCassEngTestCase):
         m2 = TestTupleModel.get(self.conn, partition=m.partition)
         self.assertEqual(m2.int_tuple, expected)
 
-        TestTupleModel.objects(
-            partition=m.partition
-        ).update(self.conn, int_tuple=None)
+        TestTupleModel.objects(partition=m.partition).update(self.conn, int_tuple=None)
 
         m3 = TestTupleModel.get(self.conn, partition=m.partition)
         self.assertEqual(m3.int_tuple, None)
@@ -909,25 +832,17 @@ class TestNestedModel(Model):
 
     partition = columns.UUID(primary_key=True, default=uuid4)
     list_list = columns.List(columns.List(columns.Integer), required=False)
-    map_list = columns.Map(
-        columns.Text,
-        columns.List(columns.Text),
-        required=False,
-    )
-    set_tuple = columns.Set(
-        columns.Tuple(columns.Integer, columns.Integer),
-        required=False,
-    )
+    map_list = columns.Map(columns.Text, columns.List(columns.Text), required=False)
+    set_tuple = columns.Set(columns.Tuple(columns.Integer, columns.Integer), required=False)
 
 
 class TestNestedType(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         # Skip annotations don't seem to skip class level teradown and setup
         # methods
         super(TestNestedType, cls).setUpClass()
-        if(CASSANDRA_VERSION >= '2.1'):
+        if CASSANDRA_VERSION >= "2.1":
             conn = cls.connection()
             drop_table(conn, TestNestedModel)
             sync_table(conn, TestNestedModel)
@@ -966,7 +881,7 @@ class TestNestedType(BaseCassEngTestCase):
         tmp2 = tmp.get(self.conn, partition=tmp.partition)
         tmp2.list_list = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
         tmp2.map_list = {
-            'key1': ["text1", "text2", "text3"],
+            "key1": ["text1", "text2", "text3"],
             "key2": ["text1", "text2", "text3"],
             "key3": ["text1", "text2", "text3"],
         }
@@ -985,7 +900,7 @@ class TestNestedType(BaseCassEngTestCase):
         """
         list_list_master = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
         map_list_master = {
-            'key1': ["text1", "text2", "text3"],
+            "key1": ["text1", "text2", "text3"],
             "key2": ["text1", "text2", "text3"],
             "key3": ["text1", "text2", "text3"],
         }
@@ -1020,65 +935,39 @@ class TestNestedType(BaseCassEngTestCase):
         @test_category object_mapper
         """
         list_list_bad_list_context = [
-            ['text', "text", "text"],
+            ["text", "text", "text"],
             ["text", "text", "text"],
             ["text", "text", "text"],
         ]
-        list_list_no_list = ['text', "text", "text"]
+        list_list_no_list = ["text", "text", "text"]
 
-        map_list_bad_value = {
-            'key1': [1, 2, 3],
-            "key2": [1, 2, 3],
-            "key3": [1, 2, 3],
-        }
+        map_list_bad_value = {"key1": [1, 2, 3], "key2": [1, 2, 3], "key3": [1, 2, 3]}
         map_list_bad_key = {
             1: ["text1", "text2", "text3"],
             2: ["text1", "text2", "text3"],
             3: ["text1", "text2", "text3"],
         }
 
-        set_tuple_bad_tuple_value = set((
-            ("text", "text"),
-            ("text", "text"),
-            ("text", "text"),
-        ))
-        set_tuple_not_set = ['This', 'is', 'not', 'a', 'set']
+        set_tuple_bad_tuple_value = set((("text", "text"), ("text", "text"), ("text", "text")))
+        set_tuple_not_set = ["This", "is", "not", "a", "set"]
 
         self.assertRaises(
-            ValidationError,
-            TestNestedModel.create,
-            self.conn,
-            list_list=list_list_bad_list_context,
+            ValidationError, TestNestedModel.create, self.conn, list_list=list_list_bad_list_context
         )
         self.assertRaises(
-            ValidationError,
-            TestNestedModel.create,
-            self.conn,
-            list_list=list_list_no_list,
+            ValidationError, TestNestedModel.create, self.conn, list_list=list_list_no_list
         )
         self.assertRaises(
-            ValidationError,
-            TestNestedModel.create,
-            self.conn,
-            map_list=map_list_bad_value,
+            ValidationError, TestNestedModel.create, self.conn, map_list=map_list_bad_value
         )
         self.assertRaises(
-            ValidationError,
-            TestNestedModel.create,
-            self.conn,
-            map_list=map_list_bad_key,
+            ValidationError, TestNestedModel.create, self.conn, map_list=map_list_bad_key
         )
         self.assertRaises(
-            ValidationError,
-            TestNestedModel.create,
-            self.conn,
-            set_tuple=set_tuple_bad_tuple_value,
+            ValidationError, TestNestedModel.create, self.conn, set_tuple=set_tuple_bad_tuple_value
         )
         self.assertRaises(
-            ValidationError,
-            TestNestedModel.create,
-            self.conn,
-            set_tuple=set_tuple_not_set,
+            ValidationError, TestNestedModel.create, self.conn, set_tuple=set_tuple_not_set
         )
 
     def test_instantiation_with_column_class(self):
@@ -1092,19 +981,9 @@ class TestNestedType(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        list_list = columns.List(
-            columns.List(columns.Integer),
-            required=False,
-        )
-        map_list = columns.Map(
-            columns.Text,
-            columns.List(columns.Text),
-            required=False,
-        )
-        set_tuple = columns.Set(
-            columns.Tuple(columns.Integer, columns.Integer),
-            required=False,
-        )
+        list_list = columns.List(columns.List(columns.Integer), required=False)
+        map_list = columns.Map(columns.Text, columns.List(columns.Text), required=False)
+        set_tuple = columns.Set(columns.Tuple(columns.Integer, columns.Integer), required=False)
 
         self.assertIsInstance(list_list, columns.List)
         self.assertIsInstance(list_list.types[0], columns.List)
@@ -1127,7 +1006,7 @@ class TestNestedType(BaseCassEngTestCase):
         # create a row with tuple data
         list_list_master = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
         map_list_master = {
-            'key1': ["text1", "text2", "text3"],
+            "key1": ["text1", "text2", "text3"],
             "key2": ["text1", "text2", "text3"],
             "key3": ["text1", "text2", "text3"],
         }
@@ -1163,12 +1042,12 @@ class TestNestedType(BaseCassEngTestCase):
         set_tuple_initial = set(((1, 2), (3, 5), (4, 5)))
 
         map_list_initial = {
-            'key1': ["text1", "text2", "text3"],
+            "key1": ["text1", "text2", "text3"],
             "key2": ["text1", "text2", "text3"],
             "key3": ["text1", "text2", "text3"],
         }
         map_list_replacement = {
-            'key1': ["text1", "text2", "text3"],
+            "key1": ["text1", "text2", "text3"],
             "key3": ["text1", "text2", "text3"],
         }
         set_tuple_replacement = set(((7, 7), (7, 7), (4, 5)))
@@ -1201,7 +1080,7 @@ class TestNestedType(BaseCassEngTestCase):
         """
         list_list_initial = [[1, 2, 3], [2, 3, 4], [3, 4, 5]]
         map_list_initial = {
-            'key1': ["text1", "text2", "text3"],
+            "key1": ["text1", "text2", "text3"],
             "key2": ["text1", "text2", "text3"],
             "key3": ["text1", "text2", "text3"],
         }
@@ -1234,14 +1113,8 @@ class TestNestedType(BaseCassEngTestCase):
         """
         pkey = uuid4()
         tmp = TestNestedModel.create(
-            self.conn,
-            partition=pkey,
-            list_list=(None),
-            map_list=(None),
-            set_tuple=(None),
+            self.conn, partition=pkey, list_list=(None), map_list=(None), set_tuple=(None)
         )
         self.assertEqual([], tmp.list_list)
         self.assertEqual({}, tmp.map_list)
         self.assertEqual(set(), tmp.set_tuple)
-
-

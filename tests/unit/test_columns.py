@@ -23,7 +23,6 @@ from cqlmapper.columns import Column
 
 
 class ColumnTest(unittest.TestCase):
-
     def test_comparisons(self):
         c0 = Column()
         c1 = Column()

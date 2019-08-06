@@ -71,9 +71,9 @@ class BaseColumnIOTest(BaseCassEngTestCase):
 
         # tupleify the tested values
         if not isinstance(cls.pkey_val, tuple):
-            cls.pkey_val = cls.pkey_val,
+            cls.pkey_val = (cls.pkey_val,)
         if not isinstance(cls.data_val, tuple):
-            cls.data_val = cls.data_val,
+            cls.data_val = (cls.data_val,)
 
     @classmethod
     def tearDownClass(cls):
@@ -106,29 +106,29 @@ class BaseColumnIOTest(BaseCassEngTestCase):
 class TestBlobIO(BaseColumnIOTest):
 
     column = columns.Blob
-    pkey_val = six.b('blake'), uuid4().bytes
-    data_val = six.b('eggleston'), uuid4().bytes
+    pkey_val = six.b("blake"), uuid4().bytes
+    data_val = six.b("eggleston"), uuid4().bytes
 
 
 class TestBlobIO2(BaseColumnIOTest):
 
     column = columns.Blob
-    pkey_val = bytearray(six.b('blake')), uuid4().bytes
-    data_val = bytearray(six.b('eggleston')), uuid4().bytes
+    pkey_val = bytearray(six.b("blake")), uuid4().bytes
+    data_val = bytearray(six.b("eggleston")), uuid4().bytes
 
 
 class TestTextIO(BaseColumnIOTest):
 
     column = columns.Text
-    pkey_val = 'bacon'
-    data_val = 'monkey'
+    pkey_val = "bacon"
+    data_val = "monkey"
 
 
 class TestNonBinaryTextIO(BaseColumnIOTest):
 
     column = columns.Text
-    pkey_val = 'bacon'
-    data_val = '0xmonkey'
+    pkey_val = "bacon"
+    data_val = "0xmonkey"
 
 
 class TestInteger(BaseColumnIOTest):
@@ -196,15 +196,14 @@ class TestDecimalIO(BaseColumnIOTest):
 
     column = columns.Decimal
 
-    pkey_val = Decimal('1.35'), 5, '2.4'
-    data_val = Decimal('0.005'), 3.5, '8'
+    pkey_val = Decimal("1.35"), 5, "2.4"
+    data_val = Decimal("0.005"), 3.5, "8"
 
     def comparator_converter(self, val):
         return Decimal(repr(val) if isinstance(val, float) else val)
 
 
 class ProtocolV4Test(BaseColumnIOTest):
-
     @classmethod
     def setUpClass(cls):
         if PROTOCOL_VERSION >= 4:
@@ -215,8 +214,8 @@ class ProtocolV4Test(BaseColumnIOTest):
         if PROTOCOL_VERSION >= 4:
             super(ProtocolV4Test, cls).tearDownClass()
 
-class TestDate(ProtocolV4Test):
 
+class TestDate(ProtocolV4Test):
     def setUp(self):
         if PROTOCOL_VERSION < 4:
             raise unittest.SkipTest(
@@ -234,7 +233,6 @@ class TestDate(ProtocolV4Test):
 
 
 class TestTime(ProtocolV4Test):
-
     def setUp(self):
         if PROTOCOL_VERSION < 4:
             raise unittest.SkipTest(
@@ -251,7 +249,6 @@ class TestTime(ProtocolV4Test):
 
 
 class TestSmallInt(ProtocolV4Test):
-
     def setUp(self):
         if PROTOCOL_VERSION < 4:
             raise unittest.SkipTest(
@@ -268,7 +265,6 @@ class TestSmallInt(ProtocolV4Test):
 
 
 class TestTinyInt(ProtocolV4Test):
-
     def setUp(self):
         if PROTOCOL_VERSION < 4:
             raise unittest.SkipTest(

@@ -13,15 +13,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from unittest import TestCase
-from cqlmapper.operators import *
 
 import six
 
+from cqlmapper.operators import *
+
 
 class TestWhereOperators(TestCase):
-
     def test_symbol_lookup(self):
         """ tests where symbols are looked up properly """
 
@@ -29,14 +28,14 @@ class TestWhereOperators(TestCase):
             op = BaseWhereOperator.get_operator(symbol)
             self.assertEqual(op, expected)
 
-        check_lookup('EQ', EqualsOperator)
-        check_lookup('NE', NotEqualsOperator)
-        check_lookup('IN', InOperator)
-        check_lookup('GT', GreaterThanOperator)
-        check_lookup('GTE', GreaterThanOrEqualOperator)
-        check_lookup('LT', LessThanOperator)
-        check_lookup('LTE', LessThanOrEqualOperator)
-        check_lookup('CONTAINS', ContainsOperator)
+        check_lookup("EQ", EqualsOperator)
+        check_lookup("NE", NotEqualsOperator)
+        check_lookup("IN", InOperator)
+        check_lookup("GT", GreaterThanOperator)
+        check_lookup("GTE", GreaterThanOrEqualOperator)
+        check_lookup("LT", LessThanOperator)
+        check_lookup("LTE", LessThanOrEqualOperator)
+        check_lookup("CONTAINS", ContainsOperator)
 
     def test_operator_rendering(self):
         """ tests symbols are rendered properly """
@@ -48,5 +47,3 @@ class TestWhereOperators(TestCase):
         self.assertEqual("<", six.text_type(LessThanOperator()))
         self.assertEqual("<=", six.text_type(LessThanOrEqualOperator()))
         self.assertEqual("CONTAINS", six.text_type(ContainsOperator()))
-
-

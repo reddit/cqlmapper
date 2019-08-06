@@ -41,7 +41,6 @@ class TestStaticModel(Model):
 
 
 class TestStaticColumn(BaseCassEngTestCase):
-
     def setUp(cls):
         if not STATIC_SUPPORTED:
             raise unittest.SkipTest("only runs against the cql3 protocol v2.0")
@@ -92,11 +91,7 @@ class TestStaticColumn(BaseCassEngTestCase):
     def test_static_with_null_cluster_key(self):
         """ Tests that save/update/delete works for static column works when
         clustering key is null"""
-        instance = TestStaticModel.create(
-            self.conn,
-            cluster=None,
-            static="it's shared",
-        )
+        instance = TestStaticModel.create(self.conn, cluster=None, static="it's shared")
         instance.save(self.conn)
 
         u = TestStaticModel.get(self.conn, partition=instance.partition)

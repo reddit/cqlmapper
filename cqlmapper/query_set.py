@@ -13,36 +13,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import copy
+
 from functools import partial
+
 import six
 
-from cqlmapper import (
-    columns,
-    CQLEngineException,
-    ValidationError,
-    TIMEOUT_NOT_SET,
-)
-from cqlmapper.query import (
-    QueryException,
-    IfExistsWithCounterColumn,
-    IfNotExistsWithCounterColumn,
-)
-from cqlmapper.functions import Token, BaseQueryFunction
-from cqlmapper.operators import (
-    InOperator,
-    EqualsOperator,
-    ContainsOperator,
-    BaseWhereOperator,
-)
-from cqlmapper.statements import (
-    WhereClause,
-    SelectStatement,
-    DeleteStatement,
-    UpdateStatement,
-    ConditionalClause,
-)
+from cqlmapper import columns
+from cqlmapper import CQLEngineException
+from cqlmapper import TIMEOUT_NOT_SET
+from cqlmapper import ValidationError
+from cqlmapper.functions import BaseQueryFunction
+from cqlmapper.functions import Token
+from cqlmapper.operators import BaseWhereOperator
+from cqlmapper.operators import ContainsOperator
+from cqlmapper.operators import EqualsOperator
+from cqlmapper.operators import InOperator
+from cqlmapper.query import IfExistsWithCounterColumn
+from cqlmapper.query import IfNotExistsWithCounterColumn
+from cqlmapper.query import QueryException
+from cqlmapper.statements import ConditionalClause
+from cqlmapper.statements import DeleteStatement
+from cqlmapper.statements import SelectStatement
+from cqlmapper.statements import UpdateStatement
+from cqlmapper.statements import WhereClause
 
 
 class DoesNotExist(QueryException):
@@ -54,7 +48,6 @@ class MultipleObjectsReturned(QueryException):
 
 
 class ModelQuerySet(object):
-
     def __init__(self, model):
         super(ModelQuerySet, self).__init__()
         self.model = model
@@ -92,7 +85,7 @@ class ModelQuerySet(object):
 
         self._count = None
 
-        self._ttl =  None
+        self._ttl = None
         self._consistency = None
         self._timestamp = None
         self._if_not_exists = False
@@ -139,9 +132,16 @@ class ModelQuerySet(object):
     def __deepcopy__(self, memo):
         clone = self.__class__(self.model)
         for k, v in self.__dict__.items():
-            if k in ['_con', '_cur', '_result_cache', '_result_idx', '_result_generator', '_construct_result']:  # don't clone these, which are per-request-execution
+            if k in [
+                "_con",
+                "_cur",
+                "_result_cache",
+                "_result_idx",
+                "_result_generator",
+                "_construct_result",
+            ]:  # don't clone these, which are per-request-execution
                 clone.__dict__[k] = None
-            elif k == '_timeout':
+            elif k == "_timeout":
                 clone.__dict__[k] = self._timeout
             else:
                 clone.__dict__[k] = copy.deepcopy(v, memo)
@@ -163,8 +163,7 @@ class ModelQuerySet(object):
                 raise QueryException(
                     'No fields in select query. Only fields: "{0}", defer '
                     'fields: "{1}"'.format(
-                        ','.join(self._only_fields),
-                        ','.join(self._defer_fields)
+                        ",".join(self._only_fields), ",".join(self._defer_fields)
                     )
                 )
             return [self.model._columns[f].db_field_name for f in fields]
@@ -176,39 +175,29 @@ class ModelQuerySet(object):
         # relationship with a primary key or indexed field
         equal_ops = [
             self.model._get_column_by_db_name(w.field)
-            for w in self._where if
-            isinstance(w.operator, EqualsOperator) and
-            not isinstance(w.value, Token)
+            for w in self._where
+            if isinstance(w.operator, EqualsOperator) and not isinstance(w.value, Token)
         ]
-        token_comparison = any([
-            w for w in self._where if isinstance(w.value, Token)
-        ])
+        token_comparison = any([w for w in self._where if isinstance(w.value, Token)])
         has_pk_or_idx = any(w.primary_key or w.index for w in equal_ops)
-        valid_clause = (
-            has_pk_or_idx or
-            token_comparison or
-            self._allow_filtering
-        )
+        valid_clause = has_pk_or_idx or token_comparison or self._allow_filtering
         if not valid_clause:
             raise QueryException(
-                'Where clauses require either =, a IN or a CONTAINS '
-                '(collection) comparison with either a primary key or '
-                'indexed field'
+                "Where clauses require either =, a IN or a CONTAINS "
+                "(collection) comparison with either a primary key or "
+                "indexed field"
             )
 
         if not self._allow_filtering:
             # if the query is not on an indexed field
             using_index = any(w.index for w in equal_ops)
             if not using_index:
-                valid_filtering = (
-                    any([w.partition_key for w in equal_ops]) or
-                    token_comparison
-                )
+                valid_filtering = any([w.partition_key for w in equal_ops]) or token_comparison
                 if not valid_filtering:
                     raise QueryException(
-                        'Filtering on a clustering key without a partition '
-                        'key is not allowed unless allow_filtering() is '
-                        'called on the querset'
+                        "Filtering on a clustering key without a partition "
+                        "key is not allowed unless allow_filtering() is "
+                        "called on the querset"
                     )
 
     def _select_query(self):
@@ -225,7 +214,7 @@ class ModelQuerySet(object):
             limit=self._limit,
             allow_filtering=self._allow_filtering,
             distinct_fields=self._distinct_fields,
-            fetch_size=self._fetch_size
+            fetch_size=self._fetch_size,
         )
 
     def _execute_query(self, conn):
@@ -241,9 +230,7 @@ class ModelQuerySet(object):
                 i for i in self._execute_statement(conn, self._select_query())
             )
             self._result_cache = []
-            self._construct_result = self._maybe_inject_deferred(
-                self._get_result_constructor()
-            )
+            self._construct_result = self._maybe_inject_deferred(self._get_result_constructor())
 
             # "DISTINCT COUNT()" is not supported in C* < 2.2, so we need to
             # materialize all results to get len() and count() working with
@@ -290,9 +277,7 @@ class ModelQuerySet(object):
                 self._result_idx += 1
                 while True:
                     try:
-                        result = self._construct_result(
-                            self._result_cache[self._result_idx]
-                        )
+                        result = self._construct_result(self._result_cache[self._result_idx])
                         self._result_cache[self._result_idx] = result
                         break
                     except IndexError:
@@ -346,11 +331,7 @@ class ModelQuerySet(object):
     def _maybe_inject_deferred(self, constructor):
         if not self._deferred_values:
             return constructor
-        return partial(
-            self._construct_with_deferred,
-            constructor,
-            self._deferred_values,
-        )
+        return partial(self._construct_with_deferred, constructor, self._deferred_values)
 
     def first(self, conn):
         try:
@@ -388,11 +369,11 @@ class ModelQuerySet(object):
         <colname>__<op>
         :returns: colname, op tuple
         """
-        statement = arg.rsplit('__', 1)
+        statement = arg.rsplit("__", 1)
         if len(statement) == 1:
             return arg, None
         elif len(statement) == 2:
-            if arg != 'pk__token':
+            if arg != "pk__token":
                 return (statement[0], statement[1])
             else:
                 return (arg, None)
@@ -407,35 +388,27 @@ class ModelQuerySet(object):
         clone = copy.deepcopy(self)
         for operator in args:
             if not isinstance(operator, ConditionalClause):
-                raise QueryException(
-                    '{0} is not a valid query operator'.format(operator)
-                )
+                raise QueryException("{0} is not a valid query operator".format(operator))
             clone._conditional.append(operator)
 
         for arg, val in kwargs.items():
             if isinstance(val, Token):
-                raise QueryException(
-                    "Token() values are not valid in conditionals"
-                )
+                raise QueryException("Token() values are not valid in conditionals")
 
             col_name, col_op = self._parse_filter_arg(arg)
             try:
                 column = self.model._get_column(col_name)
             except KeyError:
-                raise QueryException(
-                    "Can't resolve column name: '{0}'".format(col_name)
-                )
+                raise QueryException("Can't resolve column name: '{0}'".format(col_name))
 
             if isinstance(val, BaseQueryFunction):
                 query_val = val
             else:
                 query_val = column.to_database(val)
 
-            operator_class = BaseWhereOperator.get_operator(col_op or 'EQ')
+            operator_class = BaseWhereOperator.get_operator(col_op or "EQ")
             operator = operator_class()
-            clone._conditional.append(
-                WhereClause(column.db_field_name, operator, query_val)
-            )
+            clone._conditional.append(WhereClause(column.db_field_name, operator, query_val))
 
         return clone
 
@@ -461,14 +434,11 @@ class ModelQuerySet(object):
                 try:
                     column = self.model._get_column(col_name)
                 except KeyError:
-                    raise QueryException(
-                        "Can't resolve column name: '{0}'".format(col_name)
-                    )
+                    raise QueryException("Can't resolve column name: '{0}'".format(col_name))
             else:
-                if col_name != 'pk__token':
+                if col_name != "pk__token":
                     raise QueryException(
-                        "Token() values may only be compared to the "
-                        "'pk__token' virtual column"
+                        "Token() values may only be compared to the " "'pk__token' virtual column"
                     )
 
                 column = columns._PartitionKeysToken(self.model)
@@ -477,28 +447,24 @@ class ModelQuerySet(object):
                 partition_columns = column.partition_columns
                 if len(partition_columns) != len(val.value):
                     raise QueryException(
-                        'Token() received {0} arguments but model has {1} '
-                        'partition keys'.format(
-                            len(val.value),
-                            len(partition_columns),
-                        )
+                        "Token() received {0} arguments but model has {1} "
+                        "partition keys".format(len(val.value), len(partition_columns))
                     )
                 val.set_columns(partition_columns)
 
             # get query operator, or use equals if not supplied
-            operator_class = BaseWhereOperator.get_operator(col_op or 'EQ')
+            operator_class = BaseWhereOperator.get_operator(col_op or "EQ")
             operator = operator_class()
 
             if isinstance(operator, InOperator):
                 if not isinstance(val, (list, tuple)):
-                    raise QueryException(
-                        'IN queries must use a list/tuple value'
-                    )
+                    raise QueryException("IN queries must use a list/tuple value")
                 query_val = [column.to_database(v) for v in val]
             elif isinstance(val, BaseQueryFunction):
                 query_val = val
-            elif (isinstance(operator, ContainsOperator) and
-                  isinstance(column, (columns.List, columns.Set, columns.Map))):
+            elif isinstance(operator, ContainsOperator) and isinstance(
+                column, (columns.List, columns.Set, columns.Map)
+            ):
                 # For ContainsOperator and collections, we query using the
                 # value, not the container
                 query_val = val
@@ -510,12 +476,7 @@ class ModelQuerySet(object):
                     clone._deferred_values[column.db_field_name] = val
 
             clone._where.append(
-                WhereClause(
-                    column.db_field_name,
-                    operator,
-                    query_val,
-                    quote_field=quote_field,
-                )
+                WhereClause(column.db_field_name, operator, query_val, quote_field=quote_field)
             )
 
         return clone
@@ -578,23 +539,19 @@ class ModelQuerySet(object):
             if obj is NOT_SET:
                 obj = result
             else:
-                raise self.model.MultipleObjectsReturned(
-                    'Multiple objects found'
-                )
+                raise self.model.MultipleObjectsReturned("Multiple objects found")
         if obj is NOT_SET:
             raise self.model.DoesNotExist
 
         return obj
 
     def _get_ordering_condition(self, colname):
-        order_type = 'DESC' if colname.startswith('-') else 'ASC'
-        colname = colname.replace('-', '')
+        order_type = "DESC" if colname.startswith("-") else "ASC"
+        colname = colname.replace("-", "")
 
         column = self.model._columns.get(colname)
         if column is None:
-            raise QueryException(
-                "Can't resolve the column name: '{0}'".format(colname)
-            )
+            raise QueryException("Can't resolve the column name: '{0}'".format(colname))
 
         # validate the column selection
         if not column.primary_key:
@@ -651,11 +608,7 @@ class ModelQuerySet(object):
 
         conditions = []
         for colname in colnames:
-            conditions.append(
-                '"{0}" {1}'.format(
-                    *self._get_ordering_condition(colname)
-                )
-            )
+            conditions.append('"{0}" {1}'.format(*self._get_ordering_condition(colname)))
 
         clone = copy.deepcopy(self)
         clone._order.extend(conditions)
@@ -709,9 +662,7 @@ class ModelQuerySet(object):
         if distinct_fields:
             clone._distinct_fields = distinct_fields
         else:
-            clone._distinct_fields = [
-                x.column_name for x in self.model._partition_keys.values()
-            ]
+            clone._distinct_fields = [x.column_name for x in self.model._partition_keys.values()]
 
         return clone
 
@@ -780,23 +731,23 @@ class ModelQuerySet(object):
         return clone
 
     def _only_or_defer(self, action, fields):
-        if action == 'only' and self._only_fields:
+        if action == "only" and self._only_fields:
             raise QueryException("QuerySet already has 'only' fields defined")
 
         clone = copy.deepcopy(self)
 
         # check for strange fields
-        missing_fields = [
-            f for f in fields if f not in self.model._columns.keys()
-        ]
+        missing_fields = [f for f in fields if f not in self.model._columns.keys()]
         if missing_fields:
             raise QueryException(
                 "Can't resolve fields {0} in {1}".format(
-                    ', '.join(missing_fields), self.model.__name__))
+                    ", ".join(missing_fields), self.model.__name__
+                )
+            )
 
-        if action == 'defer':
+        if action == "defer":
             clone._defer_fields.update(fields)
-        elif action == 'only':
+        elif action == "only":
             clone._only_fields = fields
         else:
             raise ValueError
@@ -805,11 +756,11 @@ class ModelQuerySet(object):
 
     def only(self, fields):
         """ Load only these fields for the returned query """
-        return self._only_or_defer('only', fields)
+        return self._only_or_defer("only", fields)
 
     def defer(self, fields):
         """ Don't load these fields for the returned query """
-        return self._only_or_defer('defer', fields)
+        return self._only_or_defer("defer", fields)
 
     def create(self, conn, **kwargs):
         """ Build a new instance of self.model with the given kwargs, save it
@@ -820,13 +771,15 @@ class ModelQuerySet(object):
         :param kwargs: keyword arguments that will be passed to the constructor
             for the class specified by self.model
         """
-        return self.model(**kwargs) \
-            .ttl(self._ttl) \
-            .consistency(self._consistency) \
-            .if_not_exists(self._if_not_exists) \
-            .timestamp(self._timestamp) \
-            .if_exists(self._if_exists) \
+        return (
+            self.model(**kwargs)
+            .ttl(self._ttl)
+            .consistency(self._consistency)
+            .if_not_exists(self._if_not_exists)
+            .timestamp(self._timestamp)
+            .if_exists(self._if_exists)
             .save(conn)
+        )
 
     def delete(self, conn):
         """
@@ -836,20 +789,16 @@ class ModelQuerySet(object):
         :type: cqlengine.ConnectionInterface subclass
         """
         # validate where clause
-        partition_keys = set(
-            x.db_field_name for x in self.model._partition_keys.values()
-        )
+        partition_keys = set(x.db_field_name for x in self.model._partition_keys.values())
         if partition_keys - set(c.field for c in self._where):
-            raise QueryException(
-                "The partition key must be defined on delete queries"
-            )
+            raise QueryException("The partition key must be defined on delete queries")
 
         dq = DeleteStatement(
             self.column_family_name,
             where=self._where,
             timestamp=self._timestamp,
             conditionals=self._conditional,
-            if_exists=self._if_exists
+            if_exists=self._if_exists,
         )
         self._execute_statement(conn, dq)
 
@@ -879,16 +828,12 @@ class ModelQuerySet(object):
 
     def values_list(self, *fields, **kwargs):
         """Instructs the query set to return tuples, not model instance."""
-        flat = kwargs.pop('flat', False)
+        flat = kwargs.pop("flat", False)
         if kwargs:
-            raise TypeError(
-                'Unexpected keyword arguments to values_list: %s'
-                % (kwargs.keys(),)
-            )
+            raise TypeError("Unexpected keyword arguments to values_list: %s" % (kwargs.keys(),))
         if flat and len(fields) > 1:
             raise TypeError(
-                "'flat' is not valid when values_list is called with more "
-                "than one field."
+                "'flat' is not valid when values_list is called with more " "than one field."
             )
         clone = self.only(fields)
         clone._values_list = True
@@ -919,8 +864,7 @@ class ModelQuerySet(object):
         """
         if self.model._has_counter:
             raise IfNotExistsWithCounterColumn(
-                'if_not_exists cannot be used with tables containing '
-                'counter columns'
+                "if_not_exists cannot be used with tables containing " "counter columns"
             )
         clone = copy.deepcopy(self)
         clone._if_not_exists = True
@@ -934,8 +878,7 @@ class ModelQuerySet(object):
         """
         if self.model._has_counter:
             raise IfExistsWithCounterColumn(
-                'if_exists cannot be used with tables containing '
-                'counter columns'
+                "if_exists cannot be used with tables containing " "counter columns"
             )
         clone = copy.deepcopy(self)
         clone._if_exists = True
@@ -1060,20 +1003,14 @@ class ModelQuerySet(object):
             if col is None:
                 raise ValidationError(
                     "{0}.{1} has no column named: {2}".format(
-                        self.__module__,
-                        self.model.__name__,
-                        col_name
+                        self.__module__, self.model.__name__, col_name
                     )
                 )
             # check for primary key update attempts
             if col.is_primary_key:
                 raise ValidationError(
                     "Cannot apply update to primary key '{0}' for "
-                    "{1}.{2}".format(
-                        col_name,
-                        self.__module__,
-                        self.model.__name__,
-                    )
+                    "{1}.{2}".format(col_name, self.__module__, self.model.__name__)
                 )
 
             # we should not provide default values in this use case.
@@ -1090,10 +1027,15 @@ class ModelQuerySet(object):
             self._execute_statement(conn, us)
 
         if nulled_columns:
-            delete_conditional = [
-                condition for condition in self._conditional if
-                condition.field not in updated_columns
-            ] if self._conditional else None
+            delete_conditional = (
+                [
+                    condition
+                    for condition in self._conditional
+                    if condition.field not in updated_columns
+                ]
+                if self._conditional
+                else None
+            )
             ds = DeleteStatement(
                 self.column_family_name,
                 fields=nulled_columns,

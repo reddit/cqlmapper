@@ -13,13 +13,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import re
+
 import six
 
 from cassandra.util import OrderedDict
-from cqlmapper import CQLEngineException
+
 from cqlmapper import columns
+from cqlmapper import CQLEngineException
 from cqlmapper import models
 
 
@@ -35,6 +36,7 @@ class BaseUserType(object):
     """
     The base type class; don't inherit from this, inherit from UserType, defined below
     """
+
     __type_name__ = None
 
     _fields = None
@@ -73,7 +75,11 @@ class BaseUserType(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "{{{0}}}".format(', '.join("'{0}': {1}".format(k, getattr(self, k)) for k, v in six.iteritems(self._values)))
+        return "{{{0}}}".format(
+            ", ".join(
+                "'{0}': {1}".format(k, getattr(self, k)) for k, v in six.iteritems(self._values)
+            )
+        )
 
     def has_changed_fields(self):
         return any(v.changed for v in self._values.values())
@@ -135,14 +141,14 @@ class BaseUserType(object):
         if cls.__type_name__:
             type_name = cls.__type_name__.lower()
         else:
-            camelcase = re.compile(r'([a-z])([A-Z])')
-            ccase = lambda s: camelcase.sub(lambda v: '{0}_{1}'.format(v.group(1), v.group(2)), s)
+            camelcase = re.compile(r"([a-z])([A-Z])")
+            ccase = lambda s: camelcase.sub(lambda v: "{0}_{1}".format(v.group(1), v.group(2)), s)
 
             type_name = ccase(cls.__name__)
             # trim to less than 48 characters or cassandra will complain
             type_name = type_name[-48:]
             type_name = type_name.lower()
-            type_name = re.sub(r'^_+', '', type_name)
+            type_name = re.sub(r"^_+", "", type_name)
             cls.__type_name__ = type_name
 
         return type_name
@@ -160,7 +166,6 @@ class BaseUserType(object):
 
 
 class UserTypeMetaClass(type):
-
     def __new__(cls, name, bases, attrs):
         field_dict = OrderedDict()
 
@@ -176,19 +181,25 @@ class UserTypeMetaClass(type):
         for k, v in field_defs:
             # don't allow a field with the same name as a built-in attribute or method
             if k in BaseUserType.__dict__:
-                raise UserTypeDefinitionException("field '{0}' conflicts with built-in attribute/method".format(k))
+                raise UserTypeDefinitionException(
+                    "field '{0}' conflicts with built-in attribute/method".format(k)
+                )
             _transform_column(k, v)
 
-        attrs['_fields'] = field_dict
+        attrs["_fields"] = field_dict
 
         db_map = {}
         for field_name, field in field_dict.items():
             db_field = field.db_field_name
             if db_field != field_name:
                 if db_field in field_dict:
-                    raise UserTypeDefinitionException("db_field '{0}' for field '{1}' conflicts with another attribute name".format(db_field, field_name))
+                    raise UserTypeDefinitionException(
+                        "db_field '{0}' for field '{1}' conflicts with another attribute name".format(
+                            db_field, field_name
+                        )
+                    )
                 db_map[db_field] = field_name
-        attrs['_db_map'] = db_map
+        attrs["_db_map"] = db_map
 
         klass = super(UserTypeMetaClass, cls).__new__(cls, name, bases, attrs)
 

@@ -26,7 +26,13 @@ from uuid import UUID, uuid4
 from cqlmapper.models import Model
 from cqlmapper.usertype import UserType, UserTypeDefinitionException
 from cqlmapper import columns, connection
-from cqlmapper.management import sync_table, sync_type, create_keyspace_simple, drop_keyspace, drop_table
+from cqlmapper.management import (
+    sync_table,
+    sync_type,
+    create_keyspace_simple,
+    drop_keyspace,
+    drop_table,
+)
 from cassandra.util import Date, Time
 
 from tests.integration import PROTOCOL_VERSION
@@ -34,11 +40,12 @@ from tests.integration.base import BaseCassEngTestCase
 
 
 class UserDefinedTypeTests(BaseCassEngTestCase):
-
     def setUp(self):
         super(UserDefinedTypeTests, self).setUp()
         if PROTOCOL_VERSION < 3:
-            raise unittest.SkipTest("UDTs require native protocol 3+, currently using: {0}".format(PROTOCOL_VERSION))
+            raise unittest.SkipTest(
+                "UDTs require native protocol 3+, currently using: {0}".format(PROTOCOL_VERSION)
+            )
 
     def test_can_create_udts(self):
         class User(UserType):
@@ -256,8 +263,22 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
 
         sync_table(self.conn, AllDatatypesModel)
 
-        input = AllDatatypes(a=None, b=None, c=None, d=None, e=None, f=None, g=None, h=None, i=None, j=None, k=None,
-                             l=None, m=None, n=None)
+        input = AllDatatypes(
+            a=None,
+            b=None,
+            c=None,
+            d=None,
+            e=None,
+            f=None,
+            g=None,
+            h=None,
+            i=None,
+            j=None,
+            k=None,
+            l=None,
+            m=None,
+            n=None,
+        )
         AllDatatypesModel.create(self.conn, id=0, data=input)
 
         self.assertEqual(1, AllDatatypesModel.objects.count(self.conn))
@@ -303,17 +324,28 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
 
         sync_table(self.conn, AllDatatypesModel)
 
-        input = AllDatatypes(a='ascii', b=2 ** 63 - 1, c=bytearray(b'hello world'), d=True,
-                             e=datetime.utcfromtimestamp(872835240), f=Decimal('12.3E+7'), g=2.39,
-                             h=3.4028234663852886e+38, i='123.123.123.123', j=2147483647, k='text',
-                             l=UUID('FE2B4360-28C6-11E2-81C1-0800200C9A66'),
-                             m=UUID('067e6162-3b6f-4ae2-a171-2470b63dff00'), n=int(str(2147483647) + '000'))
+        input = AllDatatypes(
+            a="ascii",
+            b=2 ** 63 - 1,
+            c=bytearray(b"hello world"),
+            d=True,
+            e=datetime.utcfromtimestamp(872835240),
+            f=Decimal("12.3E+7"),
+            g=2.39,
+            h=3.4028234663852886e38,
+            i="123.123.123.123",
+            j=2147483647,
+            k="text",
+            l=UUID("FE2B4360-28C6-11E2-81C1-0800200C9A66"),
+            m=UUID("067e6162-3b6f-4ae2-a171-2470b63dff00"),
+            n=int(str(2147483647) + "000"),
+        )
         AllDatatypesModel.create(self.conn, id=0, data=input)
 
         self.assertEqual(1, AllDatatypesModel.objects.count(self.conn))
         output = AllDatatypesModel.objects().first(self.conn).data
 
-        for i in range(ord('a'), ord('a') + 14):
+        for i in range(ord("a"), ord("a") + 14):
             self.assertEqual(input[chr(i)], output[chr(i)])
 
     def test_can_insert_udts_protocol_v4_datatypes(self):
@@ -334,7 +366,11 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
         """
 
         if PROTOCOL_VERSION < 4:
-            raise unittest.SkipTest("Protocol v4 datatypes in UDTs require native protocol 4+, currently using: {0}".format(PROTOCOL_VERSION))
+            raise unittest.SkipTest(
+                "Protocol v4 datatypes in UDTs require native protocol 4+, currently using: {0}".format(
+                    PROTOCOL_VERSION
+                )
+            )
 
         class Allv4Datatypes(UserType):
             a = columns.Date()
@@ -348,13 +384,15 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
 
         sync_table(self.conn, Allv4DatatypesModel)
 
-        input = Allv4Datatypes(a=Date(date(1970, 1, 1)), b=32523, c=Time(time(16, 47, 25, 7)), d=123)
+        input = Allv4Datatypes(
+            a=Date(date(1970, 1, 1)), b=32523, c=Time(time(16, 47, 25, 7)), d=123
+        )
         Allv4DatatypesModel.create(self.conn, id=0, data=input)
 
         self.assertEqual(1, Allv4DatatypesModel.objects.count(self.conn))
         output = Allv4DatatypesModel.objects().first(self.conn).data
 
-        for i in range(ord('a'), ord('a') + 3):
+        for i in range(ord("a"), ord("a") + 3):
             self.assertEqual(input[chr(i)], output[chr(i)])
 
     def test_nested_udts_inserts(self):
@@ -390,7 +428,7 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
 
         # Create table, insert data
         sync_table(self.conn, Container)
-        Container.create(self.conn, id=UUID('FE2B4360-28C6-11E2-81C1-0800200C9A66'), names=names)
+        Container.create(self.conn, id=UUID("FE2B4360-28C6-11E2-81C1-0800200C9A66"), names=names)
 
         # Validate input and output matches
         self.assertEqual(1, Container.objects.count(self.conn))
@@ -410,8 +448,8 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
 
         @test_category data_types:udt
         """
-        ascii_name = 'normal name'
-        unicode_name = u'Fran\u00E7ois'
+        ascii_name = "normal name"
+        unicode_name = "Fran\u00E7ois"
 
         class User(UserType):
             age = columns.Integer()
@@ -442,9 +480,10 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
 
         @test_category data_types:udt
         """
+
         class db_field_different(UserType):
-            age = columns.Integer(db_field='a')
-            name = columns.Text(db_field='n')
+            age = columns.Integer(db_field="a")
+            name = columns.Text(db_field="n")
 
         class TheModel(Model):
             id = columns.Integer(primary_key=True)
@@ -453,7 +492,9 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
         sync_table(self.conn, TheModel)
 
         cluster = self.conn.cluster
-        type_meta = cluster.metadata.keyspaces[self.conn.keyspace].user_types[db_field_different.type_name()]
+        type_meta = cluster.metadata.keyspaces[self.conn.keyspace].user_types[
+            db_field_different.type_name()
+        ]
 
         type_fields = (db_field_different.age, db_field_different.name)
 
@@ -463,7 +504,7 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
 
         id = 0
         age = 42
-        name = 'John'
+        name = "John"
         info = db_field_different(age=age, name=name)
         TheModel.create(self.conn, id=id, info=info)
 
@@ -493,11 +534,13 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
         """
 
         with self.assertRaises(UserTypeDefinitionException):
+
             class something_silly(UserType):
                 first_col = columns.Integer()
-                second_col = columns.Text(db_field='first_col')
+                second_col = columns.Text(db_field="first_col")
 
         with self.assertRaises(UserTypeDefinitionException):
+
             class something_silly_2(UserType):
                 first_col = columns.Integer(db_field="second_col")
                 second_col = columns.Text()
@@ -538,8 +581,8 @@ class UserDefinedTypeTests(BaseCassEngTestCase):
 
         sync_table(self.conn, OuterModel)
 
-        t = OuterModel.create(self.conn, name='test1')
-        t.nested = [NestedUdt(something='test')]
+        t = OuterModel.create(self.conn, name="test1")
+        t.nested = [NestedUdt(something="test")]
         t.simple = NestedUdt(something="")
         t.save(self.conn)
         self.assertIsNotNone(t.nested[0].test_id)

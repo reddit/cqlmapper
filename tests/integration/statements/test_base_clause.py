@@ -13,20 +13,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from unittest import TestCase
+
 from cqlmapper.statements import BaseClause
 
 
 class BaseClauseTests(TestCase):
-
     def test_context_updating(self):
-        ss = BaseClause('a', 'b')
+        ss = BaseClause("a", "b")
         assert ss.get_context_size() == 1
 
         ctx = {}
         ss.set_context_id(10)
         ss.update_context(ctx)
-        assert ctx == {'10': 'b'}
-
-
+        assert ctx == {"10": "b"}

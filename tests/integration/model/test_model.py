@@ -21,12 +21,7 @@ except ImportError:
 from mock import patch
 
 from cqlmapper import columns, CQLEngineException
-from cqlmapper.management import (
-    sync_table,
-    drop_table,
-    create_keyspace_simple,
-    drop_keyspace,
-)
+from cqlmapper.management import sync_table, drop_table, create_keyspace_simple, drop_keyspace
 from cqlmapper import models
 from cqlmapper.models import Model, ModelDefinitionException
 from uuid import uuid1
@@ -39,6 +34,7 @@ class TestModel(BaseCassEngTestCase):
 
     def test_instance_equality(self):
         """ tests the model equality functionality """
+
         class EqualityModel(Model):
 
             pk = columns.Integer(primary_key=True)
@@ -51,6 +47,7 @@ class TestModel(BaseCassEngTestCase):
 
     def test_model_equality(self):
         """ tests the model equality functionality """
+
         class EqualityModel0(Model):
 
             pk = columns.Integer(primary_key=True)
@@ -86,8 +83,8 @@ class TestModel(BaseCassEngTestCase):
         """
 
         # If the keyspace exists, it will not be re-created
-        create_keyspace_simple(self.conn, 'keyspace', 1)
-        k_conn = self.connection('keyspace')
+        create_keyspace_simple(self.conn, "keyspace", 1)
+        k_conn = self.connection("keyspace")
 
         class table(Model):
             select = columns.Integer(primary_key=True)
@@ -99,7 +96,7 @@ class TestModel(BaseCassEngTestCase):
         # Create should work
         sync_table(k_conn, table)
 
-        created = table.create(k_conn, select=0, table='table')
+        created = table.create(k_conn, select=0, table="table")
         selected = table.objects(select=0).first(k_conn)
         self.assertEqual(created.select, selected.select)
         self.assertEqual(created.table, selected.table)
@@ -112,13 +109,13 @@ class TestModel(BaseCassEngTestCase):
 
         sync_table(k_conn, table)
 
-        created = table.create(k_conn, select=1, table='table')
+        created = table.create(k_conn, select=1, table="table")
         selected = table.objects(select=1).first(k_conn)
         self.assertEqual(created.select, selected.select)
         self.assertEqual(created.table, selected.table)
         self.assertEqual(created.where, selected.where)
 
-        drop_keyspace(self.conn, 'keyspace')
+        drop_keyspace(self.conn, "keyspace")
         del k_conn
 
     def test_column_family(self):
@@ -138,8 +135,9 @@ class TestModel(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
+
         class TestModel(Model):
-            __table_name__ = 'TestModel'
+            __table_name__ = "TestModel"
             __table_name_case_sensitive__ = True
 
             k = columns.Integer(primary_key=True)
@@ -158,6 +156,7 @@ class BuiltInAttributeConflictTest(unittest.TestCase):
         built-in attribute
         """
         with self.assertRaises(ModelDefinitionException):
+
             class IllegalTimestampColumnModel(Model):
 
                 my_primary_key = columns.Integer(primary_key=True)
@@ -169,6 +168,7 @@ class BuiltInAttributeConflictTest(unittest.TestCase):
         with built-in method
         """
         with self.assertRaises(ModelDefinitionException):
+
             class IllegalFilterColumnModel(Model):
 
                 my_primary_key = columns.Integer(primary_key=True)
@@ -177,7 +177,6 @@ class BuiltInAttributeConflictTest(unittest.TestCase):
 
 @pypy
 class ModelOverWriteTest(BaseCassEngTestCase):
-
     def test_model_over_write(self):
         """
         Test to ensure overwriting of primary keys in model inheritance is
@@ -192,11 +191,12 @@ class ModelOverWriteTest(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
+
         class TimeModelBase(Model):
             uuid = columns.TimeUUID(primary_key=True)
 
         class DerivedTimeModel(TimeModelBase):
-            __table_name__ = 'derived_time'
+            __table_name__ = "derived_time"
             uuid = columns.TimeUUID(primary_key=True, partition_key=True)
             value = columns.Text(required=False)
 
@@ -209,4 +209,3 @@ class ModelOverWriteTest(BaseCassEngTestCase):
         DerivedTimeModel.create(self.conn, uuid=uuid_value, value="first")
         DerivedTimeModel.create(self.conn, uuid=uuid_value2, value="second")
         DerivedTimeModel.objects.filter(uuid=uuid_value)
-

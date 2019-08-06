@@ -13,33 +13,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import six
 
-from cqlmapper import (
-    columns,
-    CQLEngineException,
-    TIMEOUT_NOT_SET,
-    UnicodeMixin,
-)
+from cqlmapper import columns
+from cqlmapper import CQLEngineException
+from cqlmapper import TIMEOUT_NOT_SET
+from cqlmapper import UnicodeMixin
 from cqlmapper.functions import QueryValue
-from cqlmapper.operators import (
-    InOperator,
-    EqualsOperator,
-    GreaterThanOperator,
-    GreaterThanOrEqualOperator,
-    LessThanOperator,
-    LessThanOrEqualOperator,
-    ContainsOperator,
-)
-from cqlmapper.statements import (
-    WhereClause,
-    DeleteStatement,
-    UpdateStatement,
-    InsertStatement,
-    BaseCQLStatement,
-    MapDeleteClause,
-)
+from cqlmapper.operators import ContainsOperator
+from cqlmapper.operators import EqualsOperator
+from cqlmapper.operators import GreaterThanOperator
+from cqlmapper.operators import GreaterThanOrEqualOperator
+from cqlmapper.operators import InOperator
+from cqlmapper.operators import LessThanOperator
+from cqlmapper.operators import LessThanOrEqualOperator
+from cqlmapper.statements import BaseCQLStatement
+from cqlmapper.statements import DeleteStatement
+from cqlmapper.statements import InsertStatement
+from cqlmapper.statements import MapDeleteClause
+from cqlmapper.statements import UpdateStatement
+from cqlmapper.statements import WhereClause
 
 
 class QueryException(CQLEngineException):
@@ -55,8 +48,8 @@ class IfExistsWithCounterColumn(CQLEngineException):
 
 
 class BatchType(object):
-    Unlogged = 'UNLOGGED'
-    Counter = 'COUNTER'
+    Unlogged = "UNLOGGED"
+    Counter = "COUNTER"
 
 
 class DMLQuery(object):
@@ -67,15 +60,25 @@ class DMLQuery(object):
 
     unlike the read query object, this is mutable
     """
+
     _ttl = None
     _consistency = None
     _timestamp = None
     _if_not_exists = False
     _if_exists = False
 
-    def __init__(self, model, instance=None, ttl=None,
-                 consistency=None, timestamp=None, if_not_exists=False,
-                 conditional=None, timeout=TIMEOUT_NOT_SET, if_exists=False):
+    def __init__(
+        self,
+        model,
+        instance=None,
+        ttl=None,
+        consistency=None,
+        timestamp=None,
+        if_not_exists=False,
+        conditional=None,
+        timeout=TIMEOUT_NOT_SET,
+        if_exists=False,
+    ):
         self.model = model
         self.column_family_name = self.model.column_family_name()
         self.instance = instance
@@ -102,9 +105,7 @@ class DMLQuery(object):
         have changed to null.
         """
         ds = DeleteStatement(
-            self.column_family_name,
-            conditionals=conditionals,
-            if_exists=self._if_exists,
+            self.column_family_name, conditionals=conditionals, if_exists=self._if_exists
         )
         deleted_fields = False
         static_only = True
@@ -115,11 +116,7 @@ class DMLQuery(object):
                 deleted_fields = True
                 static_only &= col.static
             elif isinstance(col, columns.Map):
-                uc = MapDeleteClause(
-                    col.db_field_name,
-                    v.value,
-                    v.previous_value,
-                )
+                uc = MapDeleteClause(col.db_field_name, v.value, v.previous_value)
                 if uc.get_context_size() > 0:
                     ds.add_field(uc)
                     deleted_fields = True
@@ -128,11 +125,7 @@ class DMLQuery(object):
         if deleted_fields:
             keys = self.model._partition_keys if static_only else self.model._primary_keys
             for name, col in keys.items():
-                ds.add_where(
-                    col,
-                    EqualsOperator(),
-                    getattr(self.instance, name),
-                )
+                ds.add_where(col, EqualsOperator(), getattr(self.instance, name))
             self.cleanup_statement = ds
 
 
@@ -159,9 +152,8 @@ class UpdateDMLQuery(DMLQuery):
             if_exists=self._if_exists,
         )
         for name, col in self.instance._clustering_keys.items():
-            null_clustering_key = (
-                null_clustering_key and
-                col._val_is_null(getattr(self.instance, name, None))
+            null_clustering_key = null_clustering_key and col._val_is_null(
+                getattr(self.instance, name, None)
             )
 
         updated_columns = set()
@@ -186,10 +178,15 @@ class UpdateDMLQuery(DMLQuery):
 
         if not null_clustering_key:
             # remove conditions on fields that have been updated
-            delete_conditionals = [
-                condition for condition in self._conditional if
-                condition.field not in updated_columns
-            ] if self._conditional else None
+            delete_conditionals = (
+                [
+                    condition
+                    for condition in self._conditional
+                    if condition.field not in updated_columns
+                ]
+                if self._conditional
+                else None
+            )
             self.set_delete_null_columns(delete_conditionals)
 
         if statement.assignments:
@@ -229,9 +226,8 @@ class SaveDMLQuery(DMLQuery):
         )
         static_save_only = len(self.instance._clustering_keys) != 0
         for name, col in self.instance._clustering_keys.items():
-            static_save_only = (
-                static_save_only and
-                col._val_is_null(getattr(self.instance, name, None))
+            static_save_only = static_save_only and col._val_is_null(
+                getattr(self.instance, name, None)
             )
         for name, col in self.instance._columns.items():
             if static_save_only and not col.static and not col.partition_key:

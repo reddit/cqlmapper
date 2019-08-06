@@ -37,9 +37,8 @@ class BaseQueryOperator(UnicodeMixin):
 
 
 class OpMapMeta(type):
-
     def __init__(cls, name, bases, dct):
-        if not hasattr(cls, 'opmap'):
+        if not hasattr(cls, "opmap"):
             cls.opmap = {}
         else:
             cls.opmap[cls.symbol] = cls
@@ -49,6 +48,7 @@ class OpMapMeta(type):
 @six.add_metaclass(OpMapMeta)
 class BaseWhereOperator(BaseQueryOperator):
     """ base operator used for where clauses """
+
     @classmethod
     def get_operator(cls, symbol):
         try:
@@ -58,40 +58,40 @@ class BaseWhereOperator(BaseQueryOperator):
 
 
 class EqualsOperator(BaseWhereOperator):
-    symbol = 'EQ'
-    cql_symbol = '='
+    symbol = "EQ"
+    cql_symbol = "="
 
 
 class NotEqualsOperator(BaseWhereOperator):
-    symbol = 'NE'
-    cql_symbol = '!='
+    symbol = "NE"
+    cql_symbol = "!="
 
 
 class InOperator(EqualsOperator):
-    symbol = 'IN'
-    cql_symbol = 'IN'
+    symbol = "IN"
+    cql_symbol = "IN"
 
 
 class GreaterThanOperator(BaseWhereOperator):
     symbol = "GT"
-    cql_symbol = '>'
+    cql_symbol = ">"
 
 
 class GreaterThanOrEqualOperator(BaseWhereOperator):
     symbol = "GTE"
-    cql_symbol = '>='
+    cql_symbol = ">="
 
 
 class LessThanOperator(BaseWhereOperator):
     symbol = "LT"
-    cql_symbol = '<'
+    cql_symbol = "<"
 
 
 class LessThanOrEqualOperator(BaseWhereOperator):
     symbol = "LTE"
-    cql_symbol = '<='
+    cql_symbol = "<="
 
 
 class ContainsOperator(EqualsOperator):
     symbol = "CONTAINS"
-    cql_symbol = 'CONTAINS'
+    cql_symbol = "CONTAINS"
