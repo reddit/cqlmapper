@@ -117,12 +117,3 @@ class TestConsistency(BaseConsistencyTest):
 
         args = m.call_args
         self.assertEqual(CL.ALL, args[0][0].consistency_level)
-
-    def test_default_consistency(self):
-        # verify global assumed default
-        self.assertEqual(Session.default_consistency_level, ConsistencyLevel.LOCAL_ONE)
-
-        # verify that the session default is the same as the global one by
-        # default
-        session = self.conn.session
-        self.assertEqual(session.default_consistency_level, ConsistencyLevel.LOCAL_ONE)
