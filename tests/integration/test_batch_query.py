@@ -17,8 +17,7 @@ import warnings
 
 from tests.integration import execute_count
 from tests.integration.base import BaseCassEngTestCase
-
-import mock
+from unittest import mock
 
 from cqlmapper import columns
 from cqlmapper import TIMEOUT_NOT_SET

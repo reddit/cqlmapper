@@ -18,7 +18,7 @@ try:
 except ImportError:
     import unittest  # noqa
 
-import mock
+from unittest import mock
 import logging
 from cqlmapper import CQLEngineException
 from cqlmapper import management

@@ -14,9 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from tests.integration.base import BaseCassEngTestCase
+from unittest.mock import patch
 from uuid import uuid4
-
-from mock import patch
 
 from cqlmapper import columns
 from cqlmapper import ValidationError

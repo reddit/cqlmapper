@@ -27,7 +27,7 @@ from cqlmapper.models import Model
 from uuid import uuid4
 from cqlmapper import columns
 from cqlmapper.query_set import ModelQuerySet
-import mock
+from unittest import mock
 from tests.integration import CASSANDRA_VERSION
 
 

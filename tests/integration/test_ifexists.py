@@ -18,7 +18,7 @@ try:
 except ImportError:
     import unittest  # noqa
 
-import mock
+from unittest import mock
 from uuid import uuid4
 
 from cqlmapper import columns, LWTException
