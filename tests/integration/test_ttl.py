@@ -170,7 +170,7 @@ class TTLDefaultTest(BaseDefaultTTLTest):
                 "WHERE keyspace_name = 'cqlengine_test' "
                 "AND columnfamily_name = '{0}'".format(table_name)
             )
-        return default_ttl[0]["default_time_to_live"]
+        return default_ttl[0].default_time_to_live
 
     def test_default_ttl_not_set(self):
         o = TestTTLModel.create(self.conn, text="some text")

@@ -17,6 +17,8 @@ import logging
 
 import six
 
+from cassandra.cluster import EXEC_PROFILE_DEFAULT
+from cassandra.cluster import ExecutionProfile
 from cassandra.cluster import UserTypeDoesNotExist
 from cassandra.query import dict_factory
 from cassandra.query import SimpleStatement
@@ -30,6 +32,8 @@ from cqlmapper.statements import BaseCQLStatement
 
 
 log = logging.getLogger(__name__)
+
+EXEC_PROFILE_CQLMAPPER = "_cqlmapper"
 
 
 class UndefinedKeyspaceException(CQLEngineException):
@@ -55,7 +59,12 @@ class Connection(ConnectionInterface):
         self.cluster = conn.cluster
         self.session = conn
         self.keyspace = self.session.keyspace
-        self.session.row_factory = dict_factory
+        if EXEC_PROFILE_CQLMAPPER not in self.cluster.profile_manager.profiles:
+            default_profile = self.session.get_execution_profile(EXEC_PROFILE_DEFAULT)
+            profile = self.session.execution_profile_clone_update(
+                default_profile, row_factory=dict_factory
+            )
+            self.cluster.add_execution_profile(EXEC_PROFILE_CQLMAPPER, profile)
         enc = self.session.encoder
         enc.mapping[tuple] = enc.cql_encode_tuple
 
@@ -119,7 +128,9 @@ class Connection(ConnectionInterface):
         else:
             raise ValueError("Unexpected query type %s", type(statement_or_query))
 
-        result = self.session.execute(statement_or_query, params, timeout=timeout)
+        result = self.session.execute(
+            statement_or_query, params, timeout=timeout, execution_profile=EXEC_PROFILE_CQLMAPPER
+        )
         if verify_applied:
             check_applied(result)
         return result
