@@ -13,14 +13,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from tests.integration.base import BaseCassEngTestCase
 from uuid import uuid4
 
-from cqlmapper.management import sync_table, drop_table
-from cqlmapper.models import Model
 from cqlmapper import columns
-
-from tests.integration.base import BaseCassEngTestCase
+from cqlmapper.management import drop_table
+from cqlmapper.management import sync_table
+from cqlmapper.models import Model
 
 
 class TestModel(Model):
@@ -31,7 +30,6 @@ class TestModel(Model):
 
 
 class TestEqualityOperators(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestEqualityOperators, cls).setUpClass()
@@ -39,8 +37,8 @@ class TestEqualityOperators(BaseCassEngTestCase):
 
     def setUp(self):
         super(TestEqualityOperators, self).setUp()
-        self.t0 = TestModel.create(self.conn, count=5, text='words')
-        self.t1 = TestModel.create(self.conn, count=5, text='words')
+        self.t0 = TestModel.create(self.conn, count=5, text="words")
+        self.t1 = TestModel.create(self.conn, count=5, text="words")
 
     @classmethod
     def tearDownClass(cls):
@@ -56,7 +54,7 @@ class TestEqualityOperators(BaseCassEngTestCase):
         """
         """
         t0 = TestModel.get(self.conn, id=self.t0.id)
-        t0.text = 'bleh'
+        t0.text = "bleh"
         assert t0 != self.t0
 
     def test_two_instances_referencing_the_same_rows_and_values_evaluate_equal(self):
@@ -69,4 +67,3 @@ class TestEqualityOperators(BaseCassEngTestCase):
         """
         """
         assert self.t0 != self.t1
-

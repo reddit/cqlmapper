@@ -52,7 +52,6 @@ class TestIfExistsWithCounterModel(Model):
 
 
 class BaseIfExistsTest(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(BaseIfExistsTest, cls).setUpClass()
@@ -69,7 +68,6 @@ class BaseIfExistsTest(BaseCassEngTestCase):
 
 
 class BaseIfExistsWithCounterTest(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(BaseIfExistsWithCounterTest, cls).setUpClass()
@@ -84,11 +82,7 @@ class BaseIfExistsWithCounterTest(BaseCassEngTestCase):
 
 
 class IfExistsUpdateTests(BaseIfExistsTest):
-
-    @unittest.skipUnless(
-        PROTOCOL_VERSION >= 2,
-        "only runs against the cql3 protocol v2.0",
-    )
+    @unittest.skipUnless(PROTOCOL_VERSION >= 2, "only runs against the cql3 protocol v2.0")
     def test_update_if_exists(self):
         """
         Tests that update with if_exists work as expected
@@ -103,47 +97,31 @@ class IfExistsUpdateTests(BaseIfExistsTest):
 
         id = uuid4()
 
-        m = TestIfExistsModel.create(
-            self.conn,
-            id=id,
-            count=8,
-            text='123456789',
-        )
-        m.text = 'changed'
+        m = TestIfExistsModel.create(self.conn, id=id, count=8, text="123456789")
+        m.text = "changed"
         m.if_exists().update(self.conn)
         m = TestIfExistsModel.get(self.conn, id=id)
-        self.assertEqual(m.text, 'changed')
+        self.assertEqual(m.text, "changed")
 
         # save()
-        m.text = 'changed_again'
+        m.text = "changed_again"
         m.if_exists().save(self.conn)
         m = TestIfExistsModel.get(self.conn, id=id)
-        self.assertEqual(m.text, 'changed_again')
+        self.assertEqual(m.text, "changed_again")
 
         m = TestIfExistsModel(id=uuid4(), count=44)  # do not exists
         with self.assertRaises(LWTException) as assertion:
             m.if_exists().update(self.conn)
 
-        self.assertEqual(
-            assertion.exception.existing,
-            {'[applied]': False},
-        )
+        self.assertEqual(assertion.exception.existing, {"[applied]": False})
 
         # queryset update
         with self.assertRaises(LWTException) as assertion:
-            TestIfExistsModel.objects(
-                id=uuid4()
-            ).if_exists().update(self.conn, count=8)
+            TestIfExistsModel.objects(id=uuid4()).if_exists().update(self.conn, count=8)
 
-        self.assertEqual(
-            assertion.exception.existing,
-            {'[applied]': False},
-        )
+        self.assertEqual(assertion.exception.existing, {"[applied]": False})
 
-    @unittest.skipUnless(
-        PROTOCOL_VERSION >= 2,
-        "only runs against the cql3 protocol v2.0",
-    )
+    @unittest.skipUnless(PROTOCOL_VERSION >= 2, "only runs against the cql3 protocol v2.0")
     def test_batch_update_if_exists_success(self):
         """
         Tests that batch update with if_exists work as expected
@@ -157,15 +135,10 @@ class IfExistsUpdateTests(BaseIfExistsTest):
 
         id = uuid4()
 
-        m = TestIfExistsModel.create(
-            self.conn,
-            id=id,
-            count=8,
-            text='123456789',
-        )
+        m = TestIfExistsModel.create(self.conn, id=id, count=8, text="123456789")
 
         with Batch(self.conn) as b_conn:
-            m.text = '111111111'
+            m.text = "111111111"
             m.if_exists().update(b_conn)
 
         with self.assertRaises(LWTException) as assertion:
@@ -173,22 +146,16 @@ class IfExistsUpdateTests(BaseIfExistsTest):
                 m = TestIfExistsModel(id=uuid4(), count=42)  # Doesn't exist
                 m.if_exists().update(b_conn)
 
-        self.assertEqual(
-            assertion.exception.existing,
-            {'[applied]': False},
-        )
+        self.assertEqual(assertion.exception.existing, {"[applied]": False})
 
         q = TestIfExistsModel.objects(id=id)
         self.assertEqual(len(q.find_all(self.conn)), 1)
 
         tm = q.first(self.conn)
         self.assertEqual(tm.count, 8)
-        self.assertEqual(tm.text, '111111111')
+        self.assertEqual(tm.text, "111111111")
 
-    @unittest.skipUnless(
-        PROTOCOL_VERSION >= 2,
-        "only runs against the cql3 protocol v2.0",
-    )
+    @unittest.skipUnless(PROTOCOL_VERSION >= 2, "only runs against the cql3 protocol v2.0")
     def test_batch_mixed_update_if_exists_success(self):
         """
         Tests that batch update with with one bad query will still fail with
@@ -201,28 +168,17 @@ class IfExistsUpdateTests(BaseIfExistsTest):
         @test_category object_mapper
         """
 
-        m = TestIfExistsModel2.create(
-            self.conn,
-            id=1,
-            count=8,
-            text='123456789',
-        )
+        m = TestIfExistsModel2.create(self.conn, id=1, count=8, text="123456789")
         with self.assertRaises(LWTException) as assertion:
             with Batch(self.conn) as b_conn:
-                m.text = '111111112'
+                m.text = "111111112"
                 m.if_exists().update(b_conn)  # Does exist
                 n = TestIfExistsModel2(id=1, count=10, text="Failure")  # Doesn't exist
                 n.if_exists().update(b_conn)
 
-        self.assertEqual(
-            assertion.exception.existing.get('[applied]'),
-            False,
-        )
+        self.assertEqual(assertion.exception.existing.get("[applied]"), False)
 
-    @unittest.skipUnless(
-        PROTOCOL_VERSION >= 2,
-        "only runs against the cql3 protocol v2.0"
-    )
+    @unittest.skipUnless(PROTOCOL_VERSION >= 2, "only runs against the cql3 protocol v2.0")
     def test_delete_if_exists(self):
         """
         Tests that delete with if_exists work, and throw proper LWT exception when they are are not applied
@@ -236,12 +192,7 @@ class IfExistsUpdateTests(BaseIfExistsTest):
 
         id = uuid4()
 
-        m = TestIfExistsModel.create(
-            self.conn,
-            id=id,
-            count=8,
-            text='123456789',
-        )
+        m = TestIfExistsModel.create(self.conn, id=id, count=8, text="123456789")
         m.if_exists().delete(self.conn)
         q = TestIfExistsModel.objects(id=id)
         self.assertEqual(len(q.find_all(self.conn)), 0)
@@ -250,22 +201,15 @@ class IfExistsUpdateTests(BaseIfExistsTest):
         with self.assertRaises(LWTException) as assertion:
             m.if_exists().delete(self.conn)
 
-        self.assertEqual(assertion.exception.existing, {
-            '[applied]': False,
-        })
+        self.assertEqual(assertion.exception.existing, {"[applied]": False})
 
         # queryset delete
         with self.assertRaises(LWTException) as assertion:
             TestIfExistsModel.objects(id=uuid4()).if_exists().delete(self.conn)
 
-        self.assertEqual(assertion.exception.existing, {
-            '[applied]': False,
-        })
+        self.assertEqual(assertion.exception.existing, {"[applied]": False})
 
-    @unittest.skipUnless(
-        PROTOCOL_VERSION >= 2,
-        "only runs against the cql3 protocol v2.0"
-    )
+    @unittest.skipUnless(PROTOCOL_VERSION >= 2, "only runs against the cql3 protocol v2.0")
     def test_batch_delete_if_exists_success(self):
         """
         Tests that batch deletes with if_exists work, and throw proper
@@ -281,12 +225,7 @@ class IfExistsUpdateTests(BaseIfExistsTest):
 
         id = uuid4()
 
-        m = TestIfExistsModel.create(
-            self.conn,
-            id=id,
-            count=8,
-            text='123456789',
-        )
+        m = TestIfExistsModel.create(self.conn, id=id, count=8, text="123456789")
 
         with Batch(self.conn) as b_conn:
             m.if_exists().delete(b_conn)
@@ -299,14 +238,9 @@ class IfExistsUpdateTests(BaseIfExistsTest):
                 m = TestIfExistsModel(id=uuid4(), count=42)  # Doesn't exist
                 m.if_exists().delete(b_conn)
 
-        self.assertEqual(assertion.exception.existing, {
-            '[applied]': False,
-        })
+        self.assertEqual(assertion.exception.existing, {"[applied]": False})
 
-    @unittest.skipUnless(
-        PROTOCOL_VERSION >= 2,
-        "only runs against the cql3 protocol v2.0"
-    )
+    @unittest.skipUnless(PROTOCOL_VERSION >= 2, "only runs against the cql3 protocol v2.0")
     def test_batch_delete_mixed(self):
         """
         Tests that batch deletes  with multiple queries and throw proper
@@ -319,35 +253,24 @@ class IfExistsUpdateTests(BaseIfExistsTest):
         @test_category object_mapper
         """
 
-        m = TestIfExistsModel2.create(
-            self.conn,
-            id=3,
-            count=8,
-            text='123456789',
-        )
+        m = TestIfExistsModel2.create(self.conn, id=3, count=8, text="123456789")
 
         with self.assertRaises(LWTException) as assertion:
             with Batch(self.conn) as b_conn:
                 m.if_exists().delete(b_conn)  # Does exist
-                n = TestIfExistsModel2(id=3, count=42, text='1111111')  # Doesn't exist
+                n = TestIfExistsModel2(id=3, count=42, text="1111111")  # Doesn't exist
                 n.if_exists().delete(b_conn)
 
-        self.assertEqual(
-            assertion.exception.existing.get('[applied]'),
-            False,
-        )
+        self.assertEqual(assertion.exception.existing.get("[applied]"), False)
         q = TestIfExistsModel2.objects(id=3, count=8)
         self.assertEqual(len(q.find_all(self.conn)), 1)
 
 
 class IfExistsQueryTest(BaseIfExistsTest):
-
     def test_if_exists_included_on_queryset_update(self):
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
-            TestIfExistsModel.objects(
-                id=uuid4()
-            ).if_exists().update(self.conn, count=42)
+        with mock.patch.object(self.conn.session, "execute") as m:
+            TestIfExistsModel.objects(id=uuid4()).if_exists().update(self.conn, count=42)
 
         query = m.call_args[0][0].query_string
         self.assertIn("IF EXISTS", query)
@@ -355,10 +278,8 @@ class IfExistsQueryTest(BaseIfExistsTest):
     def test_if_exists_included_on_update(self):
         """ tests that if_exists on models update works as expected """
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
-            TestIfExistsModel(
-                id=uuid4()
-            ).if_exists().update(self.conn, count=8)
+        with mock.patch.object(self.conn.session, "execute") as m:
+            TestIfExistsModel(id=uuid4()).if_exists().update(self.conn, count=8)
 
         query = m.call_args[0][0].query_string
         self.assertIn("IF EXISTS", query)
@@ -366,7 +287,7 @@ class IfExistsQueryTest(BaseIfExistsTest):
     def test_if_exists_included_on_delete(self):
         """ tests that if_exists on models delete works as expected """
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
+        with mock.patch.object(self.conn.session, "execute") as m:
             TestIfExistsModel(id=uuid4()).if_exists().delete(self.conn)
 
         query = m.call_args[0][0].query_string
@@ -374,7 +295,6 @@ class IfExistsQueryTest(BaseIfExistsTest):
 
 
 class IfExistWithCounterTest(BaseIfExistsWithCounterTest):
-
     def test_instance_raise_exception(self):
         """
         Tests if exists is used with a counter column model that
@@ -390,4 +310,3 @@ class IfExistWithCounterTest(BaseIfExistsWithCounterTest):
         id = uuid4()
         with self.assertRaises(IfExistsWithCounterColumn):
             TestIfExistsWithCounterModel.if_exists()
-

@@ -73,68 +73,45 @@ class TestDatetime(BaseCassEngTestCase):
         class TZ(tzinfo):
             def utcoffset(self, date_time):
                 return timedelta(hours=-1)
+
             def dst(self, date_time):
                 return None
 
         now = datetime(1982, 1, 1, tzinfo=TZ())
-        dt = self.DatetimeTest.objects.create(
-            self.conn,
-            test_id=1,
-            created_at=now,
-        )
+        dt = self.DatetimeTest.objects.create(self.conn, test_id=1, created_at=now)
         dt2 = self.DatetimeTest.objects(test_id=1).first(self.conn)
         assert dt2.created_at.timetuple()[:6] == (now + timedelta(hours=1)).timetuple()[:6]
 
     def test_datetime_date_support(self):
         today = date.today()
-        self.DatetimeTest.objects.create(
-            self.conn,
-            test_id=2,
-            created_at=today,
-        )
+        self.DatetimeTest.objects.create(self.conn, test_id=2, created_at=today)
         dt2 = self.DatetimeTest.objects(test_id=2).first(self.conn)
-        assert dt2.created_at.isoformat() == datetime(today.year, today.month, today.day).isoformat()
+        assert (
+            dt2.created_at.isoformat() == datetime(today.year, today.month, today.day).isoformat()
+        )
 
     def test_datetime_none(self):
-        dt = self.DatetimeTest.objects.create(
-            self.conn,
-            test_id=3,
-            created_at=None,
-        )
+        dt = self.DatetimeTest.objects.create(self.conn, test_id=3, created_at=None)
         dt2 = self.DatetimeTest.objects(test_id=3).first(self.conn)
         assert dt2.created_at is None
 
-        dts = self.DatetimeTest.objects.filter(
-            test_id=3
-        ).values_list('created_at')
+        dts = self.DatetimeTest.objects.filter(test_id=3).values_list("created_at")
         assert dts.find_all(self.conn)[0][0] is None
 
     def test_datetime_invalid(self):
-        dt_value = 'INVALID'
+        dt_value = "INVALID"
         with self.assertRaises(TypeError):
-            self.DatetimeTest.objects.create(
-                self.conn,
-                test_id=4,
-                created_at=dt_value,
-            )
+            self.DatetimeTest.objects.create(self.conn, test_id=4, created_at=dt_value)
 
     def test_datetime_timestamp(self):
         dt_value = 1454520554
-        self.DatetimeTest.objects.create(
-            self.conn,
-            test_id=5,
-            created_at=dt_value,
-        )
+        self.DatetimeTest.objects.create(self.conn, test_id=5, created_at=dt_value)
         dt2 = self.DatetimeTest.objects(test_id=5).first(self.conn)
         assert dt2.created_at == datetime.utcfromtimestamp(dt_value)
 
     def test_datetime_large(self):
         dt_value = datetime(2038, 12, 31, 10, 10, 10, 123000)
-        self.DatetimeTest.objects.create(
-            self.conn,
-            test_id=6,
-            created_at=dt_value,
-        )
+        self.DatetimeTest.objects.create(self.conn, test_id=6, created_at=dt_value)
         dt2 = self.DatetimeTest.objects(test_id=6).first(self.conn)
         assert dt2.created_at == dt_value
 
@@ -155,13 +132,9 @@ class TestDatetime(BaseCassEngTestCase):
         try:
             dt_value = datetime(2024, 12, 31, 10, 10, 10, 923567)
             dt_truncated = datetime(2024, 12, 31, 10, 10, 10, 923000)
-            self.DatetimeTest.objects.create(
-                self.conn,
-                test_id=6,
-                created_at=dt_value,
-            )
+            self.DatetimeTest.objects.create(self.conn, test_id=6, created_at=dt_value)
             dt2 = self.DatetimeTest.objects(test_id=6).first(self.conn)
-            self.assertEqual(dt2.created_at,dt_truncated)
+            self.assertEqual(dt2.created_at, dt_truncated)
         finally:
             # We need to always return behavior to default
             DateTime.truncate_microseconds = False
@@ -223,11 +196,7 @@ class TestVarInt(BaseCassEngTestCase):
         # TODO: this is a weird test.  i changed the number from sys.maxint (which doesn't exist in python 3)
         # to the giant number below and it broken between runs.
         long_int = 92834902384092834092384028340283048239048203480234823048230482304820348239
-        int1 = self.VarIntTest.objects.create(
-            self.conn,
-            test_id=0,
-            bignum=long_int,
-        )
+        int1 = self.VarIntTest.objects.create(self.conn, test_id=0, bignum=long_int)
         int2 = self.VarIntTest.objects(test_id=0).first(self.conn)
         self.assertEqual(int1.bignum, int2.bignum)
 
@@ -278,7 +247,7 @@ class TestDate(BaseCassEngTestCase):
         dt2 = self.DateTest.objects(test_id=1).first(self.conn)
         assert dt2.created_at is None
 
-        dts = self.DateTest.objects(test_id=1).values_list('created_at')
+        dts = self.DateTest.objects(test_id=1).values_list("created_at")
         assert dts.find_all(self.conn)[0][0] is None
 
 
@@ -299,17 +268,13 @@ class TestDecimal(BaseCassEngTestCase):
         drop_table(cls.connection(), cls.DecimalTest)
 
     def test_decimal_io(self):
-        dt = self.DecimalTest.objects.create(
-            self.conn,
-            test_id=0,
-            dec_val=D('0.00'),
-        )
+        dt = self.DecimalTest.objects.create(self.conn, test_id=0, dec_val=D("0.00"))
         dt2 = self.DecimalTest.objects(test_id=0).first(self.conn)
         assert dt2.dec_val == dt.dec_val
 
         dt = self.DecimalTest.objects.create(self.conn, test_id=0, dec_val=5)
         dt2 = self.DecimalTest.objects(test_id=0).first(self.conn)
-        assert dt2.dec_val == D('5')
+        assert dt2.dec_val == D("5")
 
 
 class TestUUID(BaseCassEngTestCase):
@@ -378,8 +343,8 @@ class TestTimeUUID(BaseCassEngTestCase):
 class TestInteger(BaseCassEngTestCase):
     class IntegerTest(Model):
 
-        test_id = UUID(primary_key=True, default=lambda:uuid4())
-        value   = Integer(default=0, required=True)
+        test_id = UUID(primary_key=True, default=lambda: uuid4())
+        value = Integer(default=0, required=True)
 
     def test_default_zero_fields_validate(self):
         """ Tests that integer columns with a default value of 0 validate """
@@ -390,8 +355,8 @@ class TestInteger(BaseCassEngTestCase):
 class TestBigInt(BaseCassEngTestCase):
     class BigIntTest(Model):
 
-        test_id = UUID(primary_key=True, default=lambda:uuid4())
-        value   = BigInt(default=0, required=True)
+        test_id = UUID(primary_key=True, default=lambda: uuid4())
+        value = BigInt(default=0, required=True)
 
     def test_default_zero_fields_validate(self):
         """ Tests that bigint columns with a default value of 0 validate """
@@ -400,55 +365,54 @@ class TestBigInt(BaseCassEngTestCase):
 
 
 class TestAscii(BaseCassEngTestCase):
-
     def test_min_length(self):
         """ Test arbitrary minimal lengths requirements. """
-        Ascii(min_length=0).validate('')
+        Ascii(min_length=0).validate("")
         Ascii(min_length=0).validate(None)
-        Ascii(min_length=0).validate('kevin')
+        Ascii(min_length=0).validate("kevin")
 
-        Ascii(min_length=1).validate('k')
+        Ascii(min_length=1).validate("k")
 
-        Ascii(min_length=5).validate('kevin')
-        Ascii(min_length=5).validate('kevintastic')
+        Ascii(min_length=5).validate("kevin")
+        Ascii(min_length=5).validate("kevintastic")
 
         with self.assertRaises(ValidationError):
-            Ascii(min_length=1).validate('')
+            Ascii(min_length=1).validate("")
 
         with self.assertRaises(ValidationError):
             Ascii(min_length=1).validate(None)
 
         with self.assertRaises(ValidationError):
-            Ascii(min_length=6).validate('')
+            Ascii(min_length=6).validate("")
 
         with self.assertRaises(ValidationError):
             Ascii(min_length=6).validate(None)
 
         with self.assertRaises(ValidationError):
-            Ascii(min_length=6).validate('kevin')
+            Ascii(min_length=6).validate("kevin")
 
         with self.assertRaises(ValueError):
             Ascii(min_length=-1)
 
     def test_max_length(self):
         """ Test arbitrary maximal lengths requirements. """
-        Ascii(max_length=0).validate('')
+        Ascii(max_length=0).validate("")
         Ascii(max_length=0).validate(None)
 
-        Ascii(max_length=1).validate('')
+        Ascii(max_length=1).validate("")
         Ascii(max_length=1).validate(None)
-        Ascii(max_length=1).validate('b')
+        Ascii(max_length=1).validate("b")
 
-        Ascii(max_length=5).validate('')
+        Ascii(max_length=5).validate("")
         Ascii(max_length=5).validate(None)
-        Ascii(max_length=5).validate('b')
-        Ascii(max_length=5).validate('blake')
+        Ascii(max_length=5).validate("b")
+        Ascii(max_length=5).validate("blake")
 
         with self.assertRaises(ValidationError):
-            Ascii(max_length=0).validate('b')
+            Ascii(max_length=0).validate("b")
 
         with self.assertRaises(ValidationError):
-            Ascii(max_length=5).validate('blaketastic')
+            Ascii(max_length=5).validate("blaketastic")
 
         with self.assertRaises(ValueError):
             Ascii(max_length=-1)
@@ -466,9 +430,9 @@ class TestAscii(BaseCassEngTestCase):
             Ascii(min_length=1, max_length=0)
 
     def test_type_checking(self):
-        Ascii().validate('string')
-        Ascii().validate(u'unicode')
-        Ascii().validate(bytearray('bytearray', encoding='ascii'))
+        Ascii().validate("string")
+        Ascii().validate("unicode")
+        Ascii().validate(bytearray("bytearray", encoding="ascii"))
 
         with self.assertRaises(ValidationError):
             Ascii().validate(5)
@@ -476,103 +440,102 @@ class TestAscii(BaseCassEngTestCase):
         with self.assertRaises(ValidationError):
             Ascii().validate(True)
 
-        Ascii().validate("!#$%&\'()*+,-./")
+        Ascii().validate("!#$%&'()*+,-./")
 
         with self.assertRaises(ValidationError):
-            Ascii().validate('Beyonc' + chr(233))
+            Ascii().validate("Beyonc" + chr(233))
 
         if sys.version_info < (3, 1):
             with self.assertRaises(ValidationError):
-                Ascii().validate(u'Beyonc' + unichr(233))
+                Ascii().validate("Beyonc" + unichr(233))
 
     def test_unaltering_validation(self):
         """ Test the validation step doesn't re-interpret values. """
-        self.assertEqual(Ascii().validate(''), '')
+        self.assertEqual(Ascii().validate(""), "")
         self.assertEqual(Ascii().validate(None), None)
-        self.assertEqual(Ascii().validate('yo'), 'yo')
+        self.assertEqual(Ascii().validate("yo"), "yo")
 
     def test_non_required_validation(self):
         """ Tests that validation is ok on none and blank values if required is False. """
-        Ascii().validate('')
+        Ascii().validate("")
         Ascii().validate(None)
 
     def test_required_validation(self):
         """ Tests that validation raise on none and blank values if value required. """
-        Ascii(required=True).validate('k')
+        Ascii(required=True).validate("k")
 
         with self.assertRaises(ValidationError):
-            Ascii(required=True).validate('')
+            Ascii(required=True).validate("")
 
         with self.assertRaises(ValidationError):
             Ascii(required=True).validate(None)
 
         # With min_length set.
-        Ascii(required=True, min_length=0).validate('k')
-        Ascii(required=True, min_length=1).validate('k')
+        Ascii(required=True, min_length=0).validate("k")
+        Ascii(required=True, min_length=1).validate("k")
 
         with self.assertRaises(ValidationError):
-            Ascii(required=True, min_length=2).validate('k')
+            Ascii(required=True, min_length=2).validate("k")
 
         # With max_length set.
-        Ascii(required=True, max_length=1).validate('k')
+        Ascii(required=True, max_length=1).validate("k")
 
         with self.assertRaises(ValidationError):
-            Ascii(required=True, max_length=2).validate('kevin')
+            Ascii(required=True, max_length=2).validate("kevin")
 
         with self.assertRaises(ValueError):
             Ascii(required=True, max_length=0)
 
 
 class TestText(BaseCassEngTestCase):
-
     def test_min_length(self):
         """ Test arbitrary minimal lengths requirements. """
-        Text(min_length=0).validate('')
+        Text(min_length=0).validate("")
         Text(min_length=0).validate(None)
-        Text(min_length=0).validate('blake')
+        Text(min_length=0).validate("blake")
 
-        Text(min_length=1).validate('b')
+        Text(min_length=1).validate("b")
 
-        Text(min_length=5).validate('blake')
-        Text(min_length=5).validate('blaketastic')
+        Text(min_length=5).validate("blake")
+        Text(min_length=5).validate("blaketastic")
 
         with self.assertRaises(ValidationError):
-            Text(min_length=1).validate('')
+            Text(min_length=1).validate("")
 
         with self.assertRaises(ValidationError):
             Text(min_length=1).validate(None)
 
         with self.assertRaises(ValidationError):
-            Text(min_length=6).validate('')
+            Text(min_length=6).validate("")
 
         with self.assertRaises(ValidationError):
             Text(min_length=6).validate(None)
 
         with self.assertRaises(ValidationError):
-            Text(min_length=6).validate('blake')
+            Text(min_length=6).validate("blake")
 
         with self.assertRaises(ValueError):
             Text(min_length=-1)
 
     def test_max_length(self):
         """ Test arbitrary maximal lengths requirements. """
-        Text(max_length=0).validate('')
+        Text(max_length=0).validate("")
         Text(max_length=0).validate(None)
 
-        Text(max_length=1).validate('')
+        Text(max_length=1).validate("")
         Text(max_length=1).validate(None)
-        Text(max_length=1).validate('b')
+        Text(max_length=1).validate("b")
 
-        Text(max_length=5).validate('')
+        Text(max_length=5).validate("")
         Text(max_length=5).validate(None)
-        Text(max_length=5).validate('b')
-        Text(max_length=5).validate('blake')
+        Text(max_length=5).validate("b")
+        Text(max_length=5).validate("blake")
 
         with self.assertRaises(ValidationError):
-            Text(max_length=0).validate('b')
+            Text(max_length=0).validate("b")
 
         with self.assertRaises(ValidationError):
-            Text(max_length=5).validate('blaketastic')
+            Text(max_length=5).validate("blaketastic")
 
         with self.assertRaises(ValueError):
             Text(max_length=-1)
@@ -590,9 +553,9 @@ class TestText(BaseCassEngTestCase):
             Text(min_length=1, max_length=0)
 
     def test_type_checking(self):
-        Text().validate('string')
-        Text().validate(u'unicode')
-        Text().validate(bytearray('bytearray', encoding='ascii'))
+        Text().validate("string")
+        Text().validate("unicode")
+        Text().validate(bytearray("bytearray", encoding="ascii"))
 
         with self.assertRaises(ValidationError):
             Text().validate(5)
@@ -600,44 +563,44 @@ class TestText(BaseCassEngTestCase):
         with self.assertRaises(ValidationError):
             Text().validate(True)
 
-        Text().validate("!#$%&\'()*+,-./")
-        Text().validate('Beyonc' + chr(233))
+        Text().validate("!#$%&'()*+,-./")
+        Text().validate("Beyonc" + chr(233))
         if sys.version_info < (3, 1):
-            Text().validate(u'Beyonc' + unichr(233))
+            Text().validate("Beyonc" + unichr(233))
 
     def test_unaltering_validation(self):
         """ Test the validation step doesn't re-interpret values. """
-        self.assertEqual(Text().validate(''), '')
+        self.assertEqual(Text().validate(""), "")
         self.assertEqual(Text().validate(None), None)
-        self.assertEqual(Text().validate('yo'), 'yo')
+        self.assertEqual(Text().validate("yo"), "yo")
 
     def test_non_required_validation(self):
         """ Tests that validation is ok on none and blank values if required is False """
-        Text().validate('')
+        Text().validate("")
         Text().validate(None)
 
     def test_required_validation(self):
         """ Tests that validation raise on none and blank values if value required. """
-        Text(required=True).validate('b')
+        Text(required=True).validate("b")
 
         with self.assertRaises(ValidationError):
-            Text(required=True).validate('')
+            Text(required=True).validate("")
 
         with self.assertRaises(ValidationError):
             Text(required=True).validate(None)
 
         # With min_length set.
-        Text(required=True, min_length=0).validate('b')
-        Text(required=True, min_length=1).validate('b')
+        Text(required=True, min_length=0).validate("b")
+        Text(required=True, min_length=1).validate("b")
 
         with self.assertRaises(ValidationError):
-            Text(required=True, min_length=2).validate('b')
+            Text(required=True, min_length=2).validate("b")
 
         # With max_length set.
-        Text(required=True, max_length=1).validate('b')
+        Text(required=True, max_length=1).validate("b")
 
         with self.assertRaises(ValidationError):
-            Text(required=True, max_length=2).validate('blake')
+            Text(required=True, max_length=2).validate("blake")
 
         with self.assertRaises(ValueError):
             Text(required=True, max_length=0)
@@ -656,7 +619,7 @@ class TestExtraFieldsRaiseException(BaseCassEngTestCase):
 class TestPythonDoesntDieWhenExtraFieldIsInCassandra(BaseCassEngTestCase):
     class TestModel(Model):
 
-        __table_name__ = 'alter_doesnt_break_running_app'
+        __table_name__ = "alter_doesnt_break_running_app"
         id = UUID(primary_key=True, default=uuid4)
 
     def test_extra_field(self):
@@ -664,9 +627,7 @@ class TestPythonDoesntDieWhenExtraFieldIsInCassandra(BaseCassEngTestCase):
         sync_table(self.conn, self.TestModel)
         self.TestModel.create(self.conn)
         self.conn.execute(
-            "ALTER TABLE {0} add blah int".format(
-                self.TestModel.column_family_name()
-            )
+            "ALTER TABLE {0} add blah int".format(self.TestModel.column_family_name())
         )
         self.TestModel.objects().find_all(self.conn)
 
@@ -678,9 +639,10 @@ class TestTimeUUIDFromDatetime(BaseCassEngTestCase):
         uuid = util.uuid_from_time(dt)
 
         from uuid import UUID
+
         assert isinstance(uuid, UUID)
 
-        ts = (uuid.time - 0x01b21dd213814000) / 1e7 # back to a timestamp
+        ts = (uuid.time - 0x01B21DD213814000) / 1e7  # back to a timestamp
         new_dt = datetime.utcfromtimestamp(ts)
 
         # checks that we created a UUID1 with the proper timestamp
@@ -688,7 +650,6 @@ class TestTimeUUIDFromDatetime(BaseCassEngTestCase):
 
 
 class TestInet(BaseCassEngTestCase):
-
     class InetTestModel(Model):
         id = UUID(primary_key=True, default=uuid4)
         address = Inet()
@@ -708,8 +669,4 @@ class TestInet(BaseCassEngTestCase):
     def test_non_address_fails(self):
         # TODO: presently this only tests that the server blows it up. Is there supposed to be local validation?
         with self.assertRaises(InvalidRequest):
-            self.InetTestModel.create(
-                self.conn,
-                address="what is going on here?",
-            )
-
+            self.InetTestModel.create(self.conn, address="what is going on here?")

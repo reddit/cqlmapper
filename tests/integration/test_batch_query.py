@@ -15,14 +15,17 @@
 # limitations under the License.
 import warnings
 
+from tests.integration import execute_count
+from tests.integration.base import BaseCassEngTestCase
+
 import mock
 
-from cqlmapper import columns, TIMEOUT_NOT_SET
-from cqlmapper.management import drop_table, sync_table
-from cqlmapper.models import Model
+from cqlmapper import columns
+from cqlmapper import TIMEOUT_NOT_SET
 from cqlmapper.batch import Batch
-from tests.integration.base import BaseCassEngTestCase
-from tests.integration import execute_count
+from cqlmapper.management import drop_table
+from cqlmapper.management import sync_table
+from cqlmapper.models import Model
 
 
 class TestMultiKeyModel(Model):
@@ -40,7 +43,6 @@ class BatchLogModel(Model):
 
 
 class BatchTests(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(BatchTests, cls).setUpClass()
@@ -67,13 +69,7 @@ class BatchTests(BaseCassEngTestCase):
     @execute_count(3)
     def test_insert_success_case(self):
         b_conn = Batch(self.conn)
-        TestMultiKeyModel.create(
-            b_conn,
-            partition=self.pkey,
-            cluster=2,
-            count=3,
-            text='4',
-        )
+        TestMultiKeyModel.create(b_conn, partition=self.pkey, cluster=2, count=3, text="4")
 
         with self.assertRaises(TestMultiKeyModel.DoesNotExist):
             TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=2)
@@ -86,21 +82,11 @@ class BatchTests(BaseCassEngTestCase):
 
         with Batch(self.conn) as b_conn:
             for i in range(5):
-                TestMultiKeyModel.create(
-                    b_conn,
-                    partition=self.pkey,
-                    cluster=i,
-                    count=3,
-                    text='4',
-                )
+                TestMultiKeyModel.create(b_conn, partition=self.pkey, cluster=i, count=3, text="4")
 
             for i in range(5):
                 with self.assertRaises(TestMultiKeyModel.DoesNotExist):
-                    TestMultiKeyModel.get(
-                        self.conn,
-                        partition=self.pkey,
-                        cluster=i,
-                    )
+                    TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=i)
 
         for i in range(5):
             TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=i)
@@ -108,49 +94,29 @@ class BatchTests(BaseCassEngTestCase):
     @execute_count(4)
     def test_update_success_case(self):
         inst = TestMultiKeyModel.create(
-            self.conn,
-            partition=self.pkey,
-            cluster=2,
-            count=3,
-            text='4',
+            self.conn, partition=self.pkey, cluster=2, count=3, text="4"
         )
 
         with Batch(self.conn) as b_conn:
             inst.count = 4
             inst.save(b_conn)
 
-            inst2 = TestMultiKeyModel.get(
-                self.conn,
-                partition=self.pkey,
-                cluster=2,
-            )
+            inst2 = TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=2)
             self.assertEqual(inst2.count, 3)
 
-        inst3 = TestMultiKeyModel.get(
-            self.conn,
-            partition=self.pkey,
-            cluster=2,
-        )
+        inst3 = TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=2)
         self.assertEqual(inst3.count, 4)
 
     @execute_count(4)
     def test_delete_success_case(self):
 
         inst = TestMultiKeyModel.create(
-            self.conn,
-            partition=self.pkey,
-            cluster=2,
-            count=3,
-            text='4',
+            self.conn, partition=self.pkey, cluster=2, count=3, text="4"
         )
 
         with Batch(self.conn) as b_conn:
             inst.delete(b_conn)
-            TestMultiKeyModel.get(
-                self.conn,
-                partition=self.pkey,
-                cluster=2,
-            )
+            TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=2)
 
         with self.assertRaises(TestMultiKeyModel.DoesNotExist):
             TestMultiKeyModel.get(self.conn, partition=self.pkey, cluster=2)
@@ -161,22 +127,14 @@ class BatchTests(BaseCassEngTestCase):
         for i in range(1):
             for j in range(5):
                 TestMultiKeyModel.create(
-                    self.conn,
-                    partition=i,
-                    cluster=j,
-                    count=i * j,
-                    text='{0}:{1}'.format(i, j),
+                    self.conn, partition=i, cluster=j, count=i * j, text="{0}:{1}".format(i, j)
                 )
 
         with Batch(self.conn) as b_conn:
             TestMultiKeyModel.filter(partition=0).delete(b_conn)
-            self.assertEqual(
-                TestMultiKeyModel.filter(partition=0).count(self.conn), 5
-            )
+            self.assertEqual(TestMultiKeyModel.filter(partition=0).count(self.conn), 5)
 
-        self.assertEqual(
-            TestMultiKeyModel.filter(partition=0).count(self.conn), 0
-        )
+        self.assertEqual(TestMultiKeyModel.filter(partition=0).count(self.conn), 0)
         # cleanup
         for m in TestMultiKeyModel.objects.iter(self.conn):
             m.delete(self.conn)
@@ -187,25 +145,21 @@ class BatchTests(BaseCassEngTestCase):
         b.execute_batch()
 
     def test_batch_execute_timeout(self):
-        with mock.patch.object(self.conn.session, 'execute') as mock_execute:
+        with mock.patch.object(self.conn.session, "execute") as mock_execute:
             with Batch(self.conn, timeout=1) as b_conn:
                 BatchLogModel.create(b_conn, k=2, v=2)
-            self.assertEqual(mock_execute.call_args[-1]['timeout'], 1)
+            self.assertEqual(mock_execute.call_args[-1]["timeout"], 1)
             self.assertEqual(mock_execute.call_count, 1)
 
     def test_batch_execute_no_timeout(self):
-        with mock.patch.object(self.conn.session, 'execute') as mock_execute:
+        with mock.patch.object(self.conn.session, "execute") as mock_execute:
             with Batch(self.conn) as b_conn:
                 BatchLogModel.create(b_conn, k=2, v=2)
-            self.assertEqual(
-                mock_execute.call_args[-1]['timeout'],
-                TIMEOUT_NOT_SET,
-            )
+            self.assertEqual(mock_execute.call_args[-1]["timeout"], TIMEOUT_NOT_SET)
             self.assertEqual(mock_execute.call_count, 1)
 
 
 class BatchCallbacksTests(BaseCassEngTestCase):
-
     def test_API_managing_callbacks(self):
 
         # Callbacks can be added at init and after
@@ -217,14 +171,17 @@ class BatchCallbacksTests(BaseCassEngTestCase):
         batch = Batch(self.conn)
 
         batch.add_callback(my_callback)
-        batch.add_callback(my_callback, 2, named_arg='value')
+        batch.add_callback(my_callback, 2, named_arg="value")
         batch.add_callback(my_callback, 1, 3)
 
-        self.assertEqual(batch._callbacks, [
-            (my_callback, (), {}),
-            (my_callback, (2,), {'named_arg':'value'}),
-            (my_callback, (1, 3), {})
-        ])
+        self.assertEqual(
+            batch._callbacks,
+            [
+                (my_callback, (), {}),
+                (my_callback, (2,), {"named_arg": "value"}),
+                (my_callback, (1, 3), {}),
+            ],
+        )
 
     def test_callbacks_properly_execute_callables_and_tuples(self):
 
@@ -237,12 +194,12 @@ class BatchCallbacksTests(BaseCassEngTestCase):
         batch = Batch(self.conn)
 
         batch.add_callback(my_callback)
-        batch.add_callback(my_callback, 'more', 'args')
+        batch.add_callback(my_callback, "more", "args")
 
         batch.execute_batch()
 
         self.assertEqual(len(call_history), 2)
-        self.assertEqual([(), ('more', 'args')], call_history)
+        self.assertEqual([(), ("more", "args")], call_history)
 
     def test_callbacks_tied_to_execute(self):
         """Batch callbacks should NOT fire if batch is not executed in
@@ -304,4 +261,3 @@ class BatchCallbacksTests(BaseCassEngTestCase):
             batch.execute_batch()
         self.assertEqual(len(w), 1)
         self.assertRegexpMatches(str(w[0].message), r"^Batch.*multiple.*")
-

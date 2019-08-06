@@ -13,16 +13,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from tests.integration.base import BaseCassEngTestCase
 from uuid import uuid4
 
 from mock import patch
-from cqlmapper import ValidationError
 
-from tests.integration.base import BaseCassEngTestCase
-from cqlmapper.models import Model
 from cqlmapper import columns
-from cqlmapper.management import sync_table, drop_table
+from cqlmapper import ValidationError
+from cqlmapper.management import drop_table
+from cqlmapper.management import sync_table
+from cqlmapper.models import Model
 
 
 class TestUpdateModel(Model):
@@ -34,7 +34,6 @@ class TestUpdateModel(Model):
 
 
 class ModelUpdateTests(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(ModelUpdateTests, cls).setUpClass()
@@ -47,55 +46,39 @@ class ModelUpdateTests(BaseCassEngTestCase):
 
     def test_update_model(self):
         """ tests calling udpate on models with no values passed in """
-        m0 = TestUpdateModel.create(self.conn, count=5, text='monkey')
+        m0 = TestUpdateModel.create(self.conn, count=5, text="monkey")
 
         # independently save over a new count value, unknown to original
         # instance
-        m1 = TestUpdateModel.get(
-            self.conn,
-            partition=m0.partition,
-            cluster=m0.cluster
-        )
+        m1 = TestUpdateModel.get(self.conn, partition=m0.partition, cluster=m0.cluster)
         m1.count = 6
         m1.save(self.conn)
 
         # update the text, and call update
-        m0.text = 'monkey land'
+        m0.text = "monkey land"
         m0.update(self.conn)
 
         # database should reflect both updates
-        m2 = TestUpdateModel.get(
-            self.conn,
-            partition=m0.partition,
-            cluster=m0.cluster,
-        )
+        m2 = TestUpdateModel.get(self.conn, partition=m0.partition, cluster=m0.cluster)
         self.assertEqual(m2.count, m1.count)
         self.assertEqual(m2.text, m0.text)
 
     def test_update_values(self):
         """ tests calling update on models with values passed in """
-        m0 = TestUpdateModel.create(self.conn, count=5, text='monkey')
+        m0 = TestUpdateModel.create(self.conn, count=5, text="monkey")
 
         # independently save over a new count value, unknown to original
         # instance
-        m1 = TestUpdateModel.get(
-            self.conn,
-            partition=m0.partition,
-            cluster=m0.cluster,
-        )
+        m1 = TestUpdateModel.get(self.conn, partition=m0.partition, cluster=m0.cluster)
         m1.count = 6
         m1.save(self.conn)
 
         # update the text, and call update
-        m0.update(self.conn, text='monkey land')
-        self.assertEqual(m0.text, 'monkey land')
+        m0.update(self.conn, text="monkey land")
+        self.assertEqual(m0.text, "monkey land")
 
         # database should reflect both updates
-        m2 = TestUpdateModel.get(
-            self.conn,
-            partition=m0.partition,
-            cluster=m0.cluster,
-        )
+        m2 = TestUpdateModel.get(self.conn, partition=m0.partition, cluster=m0.cluster)
         self.assertEqual(m2.count, m1.count)
         self.assertEqual(m2.text, m0.text)
 
@@ -103,13 +86,13 @@ class ModelUpdateTests(BaseCassEngTestCase):
         """
         Tests that calling update on a model with no changes will do nothing.
         """
-        m0 = TestUpdateModel.create(self.conn, count=5, text='monkey')
+        m0 = TestUpdateModel.create(self.conn, count=5, text="monkey")
 
-        with patch.object(self.conn.session, 'execute') as execute:
+        with patch.object(self.conn.session, "execute") as execute:
             m0.update(self.conn)
         assert execute.call_count == 0
 
-        with patch.object(self.conn.session, 'execute') as execute:
+        with patch.object(self.conn.session, "execute") as execute:
             m0.update(self.conn, count=5)
         assert execute.call_count == 0
 
@@ -123,28 +106,24 @@ class ModelUpdateTests(BaseCassEngTestCase):
         """ Tests that assigning the same value on a model will do nothing. """
         # Create object and fetch it back to eliminate any hidden variable
         # cache effect.
-        m0 = TestUpdateModel.create(self.conn, count=5, text='monkey')
-        m1 = TestUpdateModel.get(
-            self.conn,
-            partition=m0.partition,
-            cluster=m0.cluster,
-        )
+        m0 = TestUpdateModel.create(self.conn, count=5, text="monkey")
+        m1 = TestUpdateModel.get(self.conn, partition=m0.partition, cluster=m0.cluster)
 
-        with patch.object(self.conn.session, 'execute') as execute:
+        with patch.object(self.conn.session, "execute") as execute:
             m1.save(self.conn)
         assert execute.call_count == 0
 
-        with patch.object(self.conn.session, 'execute') as execute:
+        with patch.object(self.conn.session, "execute") as execute:
             m1.count = 5
             m1.save(self.conn)
         assert execute.call_count == 0
 
-        with patch.object(self.conn.session, 'execute') as execute:
+        with patch.object(self.conn.session, "execute") as execute:
             m1.partition = m0.partition
             m1.save(self.conn)
         assert execute.call_count == 0
 
-        with patch.object(self.conn.session, 'execute') as execute:
+        with patch.object(self.conn.session, "execute") as execute:
             m1.cluster = m0.cluster
             m1.save(self.conn)
         assert execute.call_count == 0
@@ -154,7 +133,7 @@ class ModelUpdateTests(BaseCassEngTestCase):
         tests that passing in a kwarg to the update method that isn't a
         column will fail
         """
-        m0 = TestUpdateModel.create(self.conn, count=5, text='monkey')
+        m0 = TestUpdateModel.create(self.conn, count=5, text="monkey")
         with self.assertRaises(ValidationError):
             m0.update(self.conn, numbers=20)
 
@@ -162,6 +141,6 @@ class ModelUpdateTests(BaseCassEngTestCase):
         """
         tests that attempting to update the value of a primary key will fail
         """
-        m0 = TestUpdateModel.create(self.conn, count=5, text='monkey')
+        m0 = TestUpdateModel.create(self.conn, count=5, text="monkey")
         with self.assertRaises(ValidationError):
             m0.update(self.conn, partition=uuid4())

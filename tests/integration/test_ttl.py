@@ -38,7 +38,6 @@ class TestTTLModel(Model):
 
 
 class BaseTTLTest(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(BaseTTLTest, cls).setUpClass()
@@ -51,17 +50,16 @@ class BaseTTLTest(BaseCassEngTestCase):
 
 
 class TestDefaultTTLModel(Model):
-    __options__ = {'default_time_to_live': 20}
+    __options__ = {"default_time_to_live": 20}
     id = columns.UUID(primary_key=True, default=uuid4)
     count = columns.Integer()
     text = columns.Text(required=False)
 
 
 class BaseDefaultTTLTest(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
-        if CASSANDRA_VERSION >= '2.0':
+        if CASSANDRA_VERSION >= "2.0":
             super(BaseDefaultTTLTest, cls).setUpClass()
             conn = cls.connection()
             sync_table(conn, TestDefaultTTLModel)
@@ -69,7 +67,7 @@ class BaseDefaultTTLTest(BaseCassEngTestCase):
 
     @classmethod
     def tearDownClass(cls):
-        if CASSANDRA_VERSION >= '2.0':
+        if CASSANDRA_VERSION >= "2.0":
             super(BaseDefaultTTLTest, cls).tearDownClass()
             conn = cls.connection()
             drop_table(conn, TestDefaultTTLModel)
@@ -77,7 +75,6 @@ class BaseDefaultTTLTest(BaseCassEngTestCase):
 
 
 class TTLQueryTests(BaseTTLTest):
-
     def test_update_queryset_ttl_success_case(self):
         """ tests that ttls on querysets work as expected """
 
@@ -86,11 +83,10 @@ class TTLQueryTests(BaseTTLTest):
 
 
 class TTLModelTests(BaseTTLTest):
-
     def test_ttl_included_on_create(self):
         """ tests that ttls on models work as expected """
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
+        with mock.patch.object(self.conn.session, "execute") as m:
             TestTTLModel.ttl(60).create(self.conn, text="hello blake")
 
         query = m.call_args[0][0].query_string
@@ -101,15 +97,13 @@ class TTLModelTests(BaseTTLTest):
         ensures we get a queryset descriptor back
         """
         qs = TestTTLModel.ttl(60)
-        self.assertTrue(
-            isinstance(qs, ModelQuerySet), type(qs)
-        )
+        self.assertTrue(isinstance(qs, ModelQuerySet), type(qs))
 
 
 class TTLInstanceUpdateTest(BaseTTLTest):
     def test_update_includes_ttl(self):
         model = TestTTLModel.create(self.conn, text="goodbye blake")
-        with mock.patch.object(self.conn.session, 'execute') as m:
+        with mock.patch.object(self.conn.session, "execute") as m:
             model.ttl(60).update(self.conn, text="goodbye forever")
 
         query = m.call_args[0][0].query_string
@@ -137,7 +131,7 @@ class TTLInstanceTest(BaseTTLTest):
         o.text = "new stuff"
         o = o.ttl(60)
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
+        with mock.patch.object(self.conn.session, "execute") as m:
             o.save(self.conn)
 
         query = m.call_args[0][0].query_string
@@ -149,19 +143,17 @@ class TTLBlindUpdateTest(BaseTTLTest):
         o = TestTTLModel.create(self.conn, text="whatever")
         tid = o.id
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
-            TestTTLModel.objects(
-                id=tid
-            ).ttl(60).update(self.conn, text="bacon")
+        with mock.patch.object(self.conn.session, "execute") as m:
+            TestTTLModel.objects(id=tid).ttl(60).update(self.conn, text="bacon")
 
         query = m.call_args[0][0].query_string
         self.assertIn("USING TTL", query)
 
 
 @unittest.skipIf(
-    CASSANDRA_VERSION < '2.0',
+    CASSANDRA_VERSION < "2.0",
     "default_time_to_Live was introduce in C* 2.0, "
-    "currently running {0}".format(CASSANDRA_VERSION)
+    "currently running {0}".format(CASSANDRA_VERSION),
 )
 class TTLDefaultTest(BaseDefaultTTLTest):
     def get_default_ttl(self, table_name):
@@ -178,7 +170,7 @@ class TTLDefaultTest(BaseDefaultTTLTest):
                 "WHERE keyspace_name = 'cqlengine_test' "
                 "AND columnfamily_name = '{0}'".format(table_name)
             )
-        return default_ttl[0]['default_time_to_live']
+        return default_ttl[0]["default_time_to_live"]
 
     def test_default_ttl_not_set(self):
         o = TestTTLModel.create(self.conn, text="some text")
@@ -186,10 +178,10 @@ class TTLDefaultTest(BaseDefaultTTLTest):
 
         self.assertIsNone(o._ttl)
 
-        default_ttl = self.get_default_ttl('test_ttlmodel')
+        default_ttl = self.get_default_ttl("test_ttlmodel")
         self.assertEqual(default_ttl, 0)
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
+        with mock.patch.object(self.conn.session, "execute") as m:
             TestTTLModel.objects(id=tid).update(self.conn, text="aligators")
 
         query = m.call_args[0][0].query_string
@@ -202,30 +194,28 @@ class TTLDefaultTest(BaseDefaultTTLTest):
         # Should not be set, it's handled by Cassandra
         self.assertIsNone(o._ttl)
 
-        default_ttl = self.get_default_ttl('test_default_ttlmodel')
+        default_ttl = self.get_default_ttl("test_default_ttlmodel")
         self.assertEqual(default_ttl, 20)
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
-            TestTTLModel.objects(
-                id=tid
-            ).update(self.conn, text="aligators expired")
+        with mock.patch.object(self.conn.session, "execute") as m:
+            TestTTLModel.objects(id=tid).update(self.conn, text="aligators expired")
 
         # Should not be set either
         query = m.call_args[0][0].query_string
         self.assertNotIn("USING TTL", query)
 
     def test_default_ttl_modify(self):
-        default_ttl = self.get_default_ttl('test_default_ttlmodel')
+        default_ttl = self.get_default_ttl("test_default_ttlmodel")
         self.assertEqual(default_ttl, 20)
 
-        TestDefaultTTLModel.__options__ = {'default_time_to_live': 10}
+        TestDefaultTTLModel.__options__ = {"default_time_to_live": 10}
         sync_table(self.conn, TestDefaultTTLModel)
 
-        default_ttl = self.get_default_ttl('test_default_ttlmodel')
+        default_ttl = self.get_default_ttl("test_default_ttlmodel")
         self.assertEqual(default_ttl, 10)
 
         # Restore default TTL
-        TestDefaultTTLModel.__options__ = {'default_time_to_live': 20}
+        TestDefaultTTLModel.__options__ = {"default_time_to_live": 20}
         sync_table(self.conn, TestDefaultTTLModel)
 
     def test_override_default_ttl(self):
@@ -235,10 +225,10 @@ class TTLDefaultTest(BaseDefaultTTLTest):
         o.ttl(3600)
         self.assertEqual(o._ttl, 3600)
 
-        with mock.patch.object(self.conn.session, 'execute') as m:
-            TestDefaultTTLModel.objects(
-                id=tid
-            ).ttl(None).update(self.conn, text="aligators expired")
+        with mock.patch.object(self.conn.session, "execute") as m:
+            TestDefaultTTLModel.objects(id=tid).ttl(None).update(
+                self.conn, text="aligators expired"
+            )
 
         query = m.call_args[0][0].query_string
         self.assertNotIn("USING TTL", query)

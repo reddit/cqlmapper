@@ -32,11 +32,7 @@ from cqlmapper.models import Model
 from cassandra.query import SimpleStatement
 from cassandra.util import Date, Time
 from cassandra.cqltypes import Int32Type
-from cqlmapper.statements import (
-    SelectStatement,
-    DeleteStatement,
-    WhereClause,
-)
+from cqlmapper.statements import SelectStatement, DeleteStatement, WhereClause
 from cqlmapper.operators import EqualsOperator
 
 from tests.integration import PROTOCOL_VERSION
@@ -64,7 +60,6 @@ class TestModelSave(Model):
 
 
 class TestModelIO(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestModelIO, cls).setUpClass()
@@ -79,7 +74,7 @@ class TestModelIO(BaseCassEngTestCase):
         """
         Tests that models can be saved and retrieved, using the create method.
         """
-        tm = TestModel.create(self.conn, count=8, text='123456789')
+        tm = TestModel.create(self.conn, count=8, text="123456789")
         self.assertIsInstance(tm, TestModel)
 
         tm2 = TestModel.objects(id=tm.pk).first(self.conn)
@@ -93,11 +88,11 @@ class TestModelIO(BaseCassEngTestCase):
         Tests that models can be saved and retrieved, this time using the
         natural model instantiation.
         """
-        tm = TestModel(count=8, text='123456789')
+        tm = TestModel(count=8, text="123456789")
         # Tests that values are available on instantiation.
-        self.assertIsNotNone(tm['id'])
+        self.assertIsNotNone(tm["id"])
         self.assertEqual(tm.count, 8)
-        self.assertEqual(tm.text, '123456789')
+        self.assertEqual(tm.text, "123456789")
         tm.save(self.conn)
         tm2 = TestModel.objects(id=tm.id).first(self.conn)
 
@@ -108,36 +103,26 @@ class TestModelIO(BaseCassEngTestCase):
         """
         Tests that columns of an instance can be read as a dict.
         """
-        tm = TestModel.create(
-            self.conn,
-            count=8,
-            text='123456789',
-            a_bool=True,
-        )
-        column_dict = {
-            'id': tm.id,
-            'count': tm.count,
-            'text': tm.text,
-            'a_bool': tm.a_bool,
-        }
+        tm = TestModel.create(self.conn, count=8, text="123456789", a_bool=True)
+        column_dict = {"id": tm.id, "count": tm.count, "text": tm.text, "a_bool": tm.a_bool}
         self.assertEqual(sorted(tm.keys()), sorted(column_dict.keys()))
 
         self.assertSetEqual(set(tm.values()), set(column_dict.values()))
         self.assertEqual(
-            sorted(tm.items(), key=itemgetter(0)),
-            sorted(column_dict.items(), key=itemgetter(0)))
+            sorted(tm.items(), key=itemgetter(0)), sorted(column_dict.items(), key=itemgetter(0))
+        )
         self.assertEqual(len(tm), len(column_dict))
         for column_id in column_dict.keys():
             self.assertEqual(tm[column_id], column_dict[column_id])
 
-        tm['count'] = 6
+        tm["count"] = 6
         self.assertEqual(tm.count, 6)
 
     def test_model_updating_works_properly(self):
         """
         Tests that subsequent saves after initial model creation work
         """
-        tm = TestModel.objects.create(self.conn, count=8, text='123456789')
+        tm = TestModel.objects.create(self.conn, count=8, text="123456789")
 
         tm.count = 100
         tm.a_bool = True
@@ -151,7 +136,7 @@ class TestModelIO(BaseCassEngTestCase):
         """
         Tests that an instance's delete method deletes the instance
         """
-        tm = TestModel.create(self.conn, count=8, text='123456789')
+        tm = TestModel.create(self.conn, count=8, text="123456789")
         tm.delete(self.conn)
         tm2 = TestModel.objects(id=tm.pk).first(self.conn)
         self.assertIsNone(tm2)
@@ -159,7 +144,7 @@ class TestModelIO(BaseCassEngTestCase):
     def test_column_deleting_works_properly(self):
         """
         """
-        tm = TestModel.create(self.conn, count=8, text='123456789')
+        tm = TestModel.create(self.conn, count=8, text="123456789")
         tm.text = None
         tm.save(self.conn)
 
@@ -167,7 +152,7 @@ class TestModelIO(BaseCassEngTestCase):
         self.assertIsInstance(tm2, TestModel)
 
         self.assertTrue(tm2.text is None)
-        self.assertTrue(tm2._values['text'].previous_value is None)
+        self.assertTrue(tm2._values["text"].previous_value is None)
 
     def test_a_sensical_error_is_raised_if_you_try_to_create_a_table_twice(self):
         """
@@ -214,37 +199,45 @@ class TestModelIO(BaseCassEngTestCase):
         sync_table(self.conn, AllDatatypesModel)
 
         input = [
-            'ascii', 2 ** 63 - 1, bytearray(b'hello world'), True,
-            datetime.utcfromtimestamp(872835240), Decimal('12.3E+7'), 2.39,
-            3.4028234663852886e+38, '123.123.123.123', 2147483647, 'text',
-            UUID('FE2B4360-28C6-11E2-81C1-0800200C9A66'),
-            UUID('067e6162-3b6f-4ae2-a171-2470b63dff00'),
-            int(str(2147483647) + '000')
+            "ascii",
+            2 ** 63 - 1,
+            bytearray(b"hello world"),
+            True,
+            datetime.utcfromtimestamp(872835240),
+            Decimal("12.3E+7"),
+            2.39,
+            3.4028234663852886e38,
+            "123.123.123.123",
+            2147483647,
+            "text",
+            UUID("FE2B4360-28C6-11E2-81C1-0800200C9A66"),
+            UUID("067e6162-3b6f-4ae2-a171-2470b63dff00"),
+            int(str(2147483647) + "000"),
         ]
 
         AllDatatypesModel.create(
             self.conn,
             id=0,
-            a='ascii',
+            a="ascii",
             b=2 ** 63 - 1,
-            c=bytearray(b'hello world'),
+            c=bytearray(b"hello world"),
             d=True,
             e=datetime.utcfromtimestamp(872835240),
-            f=Decimal('12.3E+7'),
+            f=Decimal("12.3E+7"),
             g=2.39,
-            h=3.4028234663852886e+38,
-            i='123.123.123.123',
+            h=3.4028234663852886e38,
+            i="123.123.123.123",
             j=2147483647,
-            k='text',
-            l=UUID('FE2B4360-28C6-11E2-81C1-0800200C9A66'),
-            m=UUID('067e6162-3b6f-4ae2-a171-2470b63dff00'),
-            n=int(str(2147483647) + '000'),
+            k="text",
+            l=UUID("FE2B4360-28C6-11E2-81C1-0800200C9A66"),
+            m=UUID("067e6162-3b6f-4ae2-a171-2470b63dff00"),
+            n=int(str(2147483647) + "000"),
         )
 
         self.assertEqual(1, AllDatatypesModel.objects.count(self.conn))
         output = AllDatatypesModel.objects().first(self.conn)
 
-        for i, i_char in enumerate(range(ord('a'), ord('a') + 14)):
+        for i, i_char in enumerate(range(ord("a"), ord("a") + 14)):
             self.assertEqual(input[i], output[chr(i_char)])
 
     def test_can_specify_none_instead_of_default(self):
@@ -297,26 +290,16 @@ class TestModelIO(BaseCassEngTestCase):
 
         sync_table(self.conn, v4DatatypesModel)
 
-        input = [
-            Date(date(1970, 1, 1)),
-            32523,
-            Time(time(16, 47, 25, 7)),
-            123,
-        ]
+        input = [Date(date(1970, 1, 1)), 32523, Time(time(16, 47, 25, 7)), 123]
 
         v4DatatypesModel.create(
-            self.conn,
-            id=0,
-            a=date(1970, 1, 1),
-            b=32523,
-            c=time(16, 47, 25, 7),
-            d=123,
+            self.conn, id=0, a=date(1970, 1, 1), b=32523, c=time(16, 47, 25, 7), d=123
         )
 
         self.assertEqual(1, v4DatatypesModel.objects.count(self.conn))
         output = v4DatatypesModel.objects().first(self.conn)
 
-        for i, i_char in enumerate(range(ord('a'), ord('a') + 3)):
+        for i, i_char in enumerate(range(ord("a"), ord("a") + 3)):
             self.assertEqual(input[i], output[chr(i_char)])
 
     def test_can_insert_double_and_float(self):
@@ -342,19 +325,14 @@ class TestModelIO(BaseCassEngTestCase):
         output = FloatingPointModel.objects().first(self.conn)
         self.assertEqual(2.390000104904175, output.f)  # float loses precision
 
-        FloatingPointModel.create(
-            self.conn,
-            id=0,
-            f=3.4028234663852886e+38,
-            d=2.39,
-        )
+        FloatingPointModel.create(self.conn, id=0, f=3.4028234663852886e38, d=2.39)
         output = FloatingPointModel.objects().first(self.conn)
-        self.assertEqual(3.4028234663852886e+38, output.f)
+        self.assertEqual(3.4028234663852886e38, output.f)
         self.assertEqual(2.39, output.d)  # double retains precision
 
-        FloatingPointModel.create(self.conn, id=0, d=3.4028234663852886e+38)
+        FloatingPointModel.create(self.conn, id=0, d=3.4028234663852886e38)
         output = FloatingPointModel.objects().first(self.conn)
-        self.assertEqual(3.4028234663852886e+38, output.d)
+        self.assertEqual(3.4028234663852886e38, output.d)
 
 
 class TestMultiKeyModel(Model):
@@ -366,7 +344,6 @@ class TestMultiKeyModel(Model):
 
 
 class TestDeleting(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestDeleting, cls).setUpClass()
@@ -383,36 +360,19 @@ class TestDeleting(BaseCassEngTestCase):
         partition = random.randint(0, 1000)
         for i in range(5):
             TestMultiKeyModel.create(
-                self.conn,
-                partition=partition,
-                cluster=i,
-                count=i,
-                text=str(i),
+                self.conn, partition=partition, cluster=i, count=i, text=str(i)
             )
 
-        self.assertTrue(
-            TestMultiKeyModel.filter(
-                partition=partition
-            ).count(self.conn) == 5
-        )
+        self.assertTrue(TestMultiKeyModel.filter(partition=partition).count(self.conn) == 5)
 
-        TestMultiKeyModel.get(
-            self.conn,
-            partition=partition,
-            cluster=0,
-        ).delete(self.conn)
+        TestMultiKeyModel.get(self.conn, partition=partition, cluster=0).delete(self.conn)
 
-        self.assertTrue(
-            TestMultiKeyModel.filter(
-                partition=partition
-            ).count(self.conn) == 4
-        )
+        self.assertTrue(TestMultiKeyModel.filter(partition=partition).count(self.conn) == 4)
 
         TestMultiKeyModel.filter(partition=partition).delete(self.conn)
 
 
 class TestUpdating(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestUpdating, cls).setUpClass()
@@ -436,7 +396,7 @@ class TestUpdating(BaseCassEngTestCase):
             partition=random.randint(0, 1000),
             cluster=random.randint(0, 1000),
             count=0,
-            text='happy'
+            text="happy",
         )
 
     def test_vanilla_update(self):
@@ -444,12 +404,10 @@ class TestUpdating(BaseCassEngTestCase):
         self.instance.save(self.conn)
 
         check = TestMultiKeyModel.get(
-            self.conn,
-            partition=self.instance.partition,
-            cluster=self.instance.cluster,
+            self.conn, partition=self.instance.partition, cluster=self.instance.cluster
         )
         self.assertTrue(check.count == 5)
-        self.assertTrue(check.text == 'happy')
+        self.assertTrue(check.text == "happy")
 
     def test_deleting_only(self):
         self.instance.count = None
@@ -457,9 +415,7 @@ class TestUpdating(BaseCassEngTestCase):
         self.instance.save(self.conn)
 
         check = TestMultiKeyModel.get(
-            self.conn,
-            partition=self.instance.partition,
-            cluster=self.instance.cluster,
+            self.conn, partition=self.instance.partition, cluster=self.instance.cluster
         )
         self.assertTrue(check.count is None)
         self.assertTrue(check.text is None)
@@ -469,68 +425,68 @@ class TestUpdating(BaseCassEngTestCase):
         self.instance.count = 1
         changes = self.instance.get_changed_columns()
         self.assertTrue(len(changes) == 1)
-        self.assertTrue(changes == ['count'])
+        self.assertTrue(changes == ["count"])
         self.instance.save(self.conn)
         self.assertTrue(self.instance.get_changed_columns() == [])
 
     def test_previous_value_tracking_of_persisted_instance(self):
         # Check initial internal states.
         self.assertTrue(self.instance.get_changed_columns() == [])
-        self.assertTrue(self.instance._values['count'].previous_value == 0)
+        self.assertTrue(self.instance._values["count"].previous_value == 0)
 
         # Change value and check internal states.
         self.instance.count = 1
-        self.assertTrue(self.instance.get_changed_columns() == ['count'])
-        self.assertTrue(self.instance._values['count'].previous_value == 0)
+        self.assertTrue(self.instance.get_changed_columns() == ["count"])
+        self.assertTrue(self.instance._values["count"].previous_value == 0)
 
         # Internal states should be updated on save.
         self.instance.save(self.conn)
         self.assertTrue(self.instance.get_changed_columns() == [])
-        self.assertTrue(self.instance._values['count'].previous_value == 1)
+        self.assertTrue(self.instance._values["count"].previous_value == 1)
 
         # Change value twice.
         self.instance.count = 2
-        self.assertTrue(self.instance.get_changed_columns() == ['count'])
-        self.assertTrue(self.instance._values['count'].previous_value == 1)
+        self.assertTrue(self.instance.get_changed_columns() == ["count"])
+        self.assertTrue(self.instance._values["count"].previous_value == 1)
         self.instance.count = 3
-        self.assertTrue(self.instance.get_changed_columns() == ['count'])
-        self.assertTrue(self.instance._values['count'].previous_value == 1)
+        self.assertTrue(self.instance.get_changed_columns() == ["count"])
+        self.assertTrue(self.instance._values["count"].previous_value == 1)
 
         # Internal states updated on save.
         self.instance.save(self.conn)
         self.assertTrue(self.instance.get_changed_columns() == [])
-        self.assertTrue(self.instance._values['count'].previous_value == 3)
+        self.assertTrue(self.instance._values["count"].previous_value == 3)
 
         # Change value and reset it.
         self.instance.count = 2
-        self.assertTrue(self.instance.get_changed_columns() == ['count'])
-        self.assertTrue(self.instance._values['count'].previous_value == 3)
+        self.assertTrue(self.instance.get_changed_columns() == ["count"])
+        self.assertTrue(self.instance._values["count"].previous_value == 3)
         self.instance.count = 3
         self.assertTrue(self.instance.get_changed_columns() == [])
-        self.assertTrue(self.instance._values['count'].previous_value == 3)
+        self.assertTrue(self.instance._values["count"].previous_value == 3)
 
         # Nothing to save: values in initial conditions.
         self.instance.save(self.conn)
         self.assertTrue(self.instance.get_changed_columns() == [])
-        self.assertTrue(self.instance._values['count'].previous_value == 3)
+        self.assertTrue(self.instance._values["count"].previous_value == 3)
 
         # Change Multiple values
         self.instance.count = 4
         self.instance.text = "changed"
         self.assertTrue(len(self.instance.get_changed_columns()) == 2)
-        self.assertTrue('text' in self.instance.get_changed_columns())
-        self.assertTrue('count' in self.instance.get_changed_columns())
+        self.assertTrue("text" in self.instance.get_changed_columns())
+        self.assertTrue("count" in self.instance.get_changed_columns())
         self.instance.save(self.conn)
         self.assertTrue(self.instance.get_changed_columns() == [])
 
         # Reset Multiple Values
         self.instance.count = 5
         self.instance.text = "changed"
-        self.assertTrue(self.instance.get_changed_columns() == ['count'])
+        self.assertTrue(self.instance.get_changed_columns() == ["count"])
         self.instance.text = "changed2"
         self.assertTrue(len(self.instance.get_changed_columns()) == 2)
-        self.assertTrue('text' in self.instance.get_changed_columns())
-        self.assertTrue('count' in self.instance.get_changed_columns())
+        self.assertTrue("text" in self.instance.get_changed_columns())
+        self.assertTrue("count" in self.instance.get_changed_columns())
         self.instance.count = 4
         self.instance.text = "changed"
         self.assertTrue(self.instance.get_changed_columns() == [])
@@ -540,41 +496,38 @@ class TestUpdating(BaseCassEngTestCase):
             partition=random.randint(0, 1000),
             cluster=random.randint(0, 1000),
             count=0,
-            text='happy',
+            text="happy",
         )
 
         # Columns of instances not persisted yet should be marked as changed.
-        self.assertTrue(set(self.instance.get_changed_columns()) == set([
-            'partition', 'cluster', 'count', 'text']))
         self.assertTrue(
-            self.instance._values['partition'].previous_value is None
+            set(self.instance.get_changed_columns())
+            == set(["partition", "cluster", "count", "text"])
         )
-        self.assertTrue(
-            self.instance._values['cluster'].previous_value is None
-        )
-        self.assertTrue(self.instance._values['count'].previous_value is None)
-        self.assertTrue(self.instance._values['text'].previous_value is None)
+        self.assertTrue(self.instance._values["partition"].previous_value is None)
+        self.assertTrue(self.instance._values["cluster"].previous_value is None)
+        self.assertTrue(self.instance._values["count"].previous_value is None)
+        self.assertTrue(self.instance._values["text"].previous_value is None)
 
         # Value changes doesn't affect internal states.
         self.instance.count = 1
-        self.assertTrue('count' in self.instance.get_changed_columns())
-        self.assertTrue(self.instance._values['count'].previous_value is None)
+        self.assertTrue("count" in self.instance.get_changed_columns())
+        self.assertTrue(self.instance._values["count"].previous_value is None)
         self.instance.count = 2
-        self.assertTrue('count' in self.instance.get_changed_columns())
-        self.assertTrue(self.instance._values['count'].previous_value is None)
+        self.assertTrue("count" in self.instance.get_changed_columns())
+        self.assertTrue(self.instance._values["count"].previous_value is None)
 
         # Value reset is properly tracked.
         self.instance.count = None
-        self.assertTrue('count' not in self.instance.get_changed_columns())
-        self.assertTrue(self.instance._values['count'].previous_value is None)
+        self.assertTrue("count" not in self.instance.get_changed_columns())
+        self.assertTrue(self.instance._values["count"].previous_value is None)
 
         self.instance.save(self.conn)
         self.assertTrue(self.instance.get_changed_columns() == [])
-        self.assertTrue(self.instance._values['count'].previous_value is None)
+        self.assertTrue(self.instance._values["count"].previous_value is None)
         self.assertTrue(self.instance.count is None)
 
     def test_previous_value_tracking_on_instantiation_with_default(self):
-
         class TestDefaultValueTracking(Model):
             id = columns.Integer(partition_key=True)
             int1 = columns.Integer(default=123)
@@ -584,11 +537,7 @@ class TestUpdating(BaseCassEngTestCase):
             int5 = columns.Integer()
             int6 = columns.Integer()
 
-        instance = TestDefaultValueTracking(
-            id=1,
-            int1=9999,
-            int3=7777,
-            int5=5555)
+        instance = TestDefaultValueTracking(id=1, int1=9999, int3=7777, int5=5555)
 
         self.assertEqual(instance.id, 1)
         self.assertEqual(instance.int1, 9999)
@@ -603,18 +552,20 @@ class TestUpdating(BaseCassEngTestCase):
 
         # All previous values are unset as the object hasn't been persisted
         # yet.
-        self.assertTrue(instance._values['id'].previous_value is None)
-        self.assertTrue(instance._values['int1'].previous_value is None)
-        self.assertTrue(instance._values['int2'].previous_value is None)
-        self.assertTrue(instance._values['int3'].previous_value is None)
-        self.assertTrue(instance._values['int4'].previous_value is None)
-        self.assertTrue(instance._values['int5'].previous_value is None)
-        self.assertTrue(instance._values['int6'].previous_value is None)
+        self.assertTrue(instance._values["id"].previous_value is None)
+        self.assertTrue(instance._values["int1"].previous_value is None)
+        self.assertTrue(instance._values["int2"].previous_value is None)
+        self.assertTrue(instance._values["int3"].previous_value is None)
+        self.assertTrue(instance._values["int4"].previous_value is None)
+        self.assertTrue(instance._values["int5"].previous_value is None)
+        self.assertTrue(instance._values["int6"].previous_value is None)
 
         # All explicitely set columns, and those with default values are
         # flagged has changed.
-        self.assertTrue(set(instance.get_changed_columns()) == set([
-            'id', 'int1', 'int2', 'int3', 'int4', 'int5']))
+        self.assertTrue(
+            set(instance.get_changed_columns())
+            == set(["id", "int1", "int2", "int3", "int4", "int5"])
+        )
 
     def test_save_to_none(self):
         """
@@ -633,10 +584,10 @@ class TestUpdating(BaseCassEngTestCase):
 
         partition = uuid4()
         cluster = 1
-        text = 'set'
-        text_list = ['set']
+        text = "set"
+        text_list = ["set"]
         text_set = set(("set",))
-        text_map = {"set": 'set'}
+        text_map = {"set": "set"}
         initial = TestModelSave(
             partition=partition,
             cluster=cluster,
@@ -646,11 +597,7 @@ class TestUpdating(BaseCassEngTestCase):
             text_map=text_map,
         )
         initial.save(self.conn)
-        current = TestModelSave.objects.get(
-            self.conn,
-            partition=partition,
-            cluster=cluster,
-        )
+        current = TestModelSave.objects.get(self.conn, partition=partition, cluster=cluster)
         self.assertEqual(current.text, text)
         self.assertEqual(current.text_list, text_list)
         self.assertEqual(current.text_set, text_set)
@@ -666,22 +613,18 @@ class TestUpdating(BaseCassEngTestCase):
         )
 
         next.save(self.conn)
-        current = TestModelSave.objects.get(
-            self.conn,
-            partition=partition,
-            cluster=cluster,
-        )
+        current = TestModelSave.objects.get(self.conn, partition=partition, cluster=cluster)
         self.assertEqual(current.text, None)
         self.assertEqual(current.text_list, [])
         self.assertEqual(current.text_set, set())
         self.assertEqual(current.text_map, {})
-
 
     def test_none_filter_fails(self):
         class NoneFilterModel(Model):
 
             pk = columns.Integer(primary_key=True)
             v = columns.Integer()
+
         sync_table(self.conn, NoneFilterModel)
 
         try:
@@ -692,7 +635,6 @@ class TestUpdating(BaseCassEngTestCase):
 
 
 class TestCanUpdate(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestCanUpdate, cls).setUpClass()
@@ -706,7 +648,7 @@ class TestCanUpdate(BaseCassEngTestCase):
         drop_table(cls.connection(), TestModel)
 
     def test_success_case(self):
-        tm = TestModel(count=8, text='123456789')
+        tm = TestModel(count=8, text="123456789")
 
         # object hasn't been saved,
         # shouldn't be able to update
@@ -741,7 +683,6 @@ class IndexDefinitionModel(Model):
 
 
 class TestIndexedColumnDefinition(BaseCassEngTestCase):
-
     def test_exception_isnt_raised_if_an_index_is_defined_more_than_once(self):
         sync_table(self.conn, IndexDefinitionModel)
         sync_table(self.conn, IndexDefinitionModel)
@@ -754,15 +695,14 @@ class ReservedWordModel(Model):
 
 
 class TestQueryQuoting(BaseCassEngTestCase):
-
     def test_reserved_cql_words_can_be_used_as_column_names(self):
         """
         """
         sync_table(self.conn, ReservedWordModel)
 
-        model1 = ReservedWordModel.create(self.conn, token='1', insert=5)
+        model1 = ReservedWordModel.create(self.conn, token="1", insert=5)
 
-        model2 = ReservedWordModel.filter(token='1')
+        model2 = ReservedWordModel.filter(token="1")
 
         self.assertTrue(len(model2.find_all(self.conn)) == 1)
         self.assertTrue(model1.token == model2.first(self.conn).token)
@@ -777,7 +717,6 @@ class TestQueryModel(Model):
 
 
 class TestQuerying(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         if PROTOCOL_VERSION < 4:
@@ -807,38 +746,30 @@ class TestQuerying(BaseCassEngTestCase):
     def test_query_with_date(self):
         uid = uuid4()
         day = date(2013, 11, 26)
-        obj = TestQueryModel.create(
-            self.conn,
-            test_id=uid,
-            date=day,
-            description=u'foo',
-        )
+        obj = TestQueryModel.create(self.conn, test_id=uid, date=day, description="foo")
 
-        self.assertEqual(obj.description, u'foo')
+        self.assertEqual(obj.description, "foo")
 
-        inst = TestQueryModel.filter(
-            test_id__eq=uid,
-            date__eq=day,
-        ).limit(1).first(self.conn)
+        inst = TestQueryModel.filter(test_id__eq=uid, date__eq=day).limit(1).first(self.conn)
 
         self.assertTrue(inst.test_id == uid)
         self.assertTrue(inst.date == day)
 
 
 class BasicModel(Model):
-    __table_name__ = 'basic_model_routing'
+    __table_name__ = "basic_model_routing"
     k = columns.Integer(primary_key=True)
     v = columns.Integer()
 
 
 class BasicModelMulti(Model):
-    __table_name__ = 'basic_model_routing_multi'
+    __table_name__ = "basic_model_routing_multi"
     k = columns.Integer(partition_key=True)
     v = columns.Integer(partition_key=True)
 
 
 class ComplexModelRouting(Model):
-    __table_name__ = 'complex_model_routing'
+    __table_name__ = "complex_model_routing"
     partition = columns.UUID(partition_key=True, default=uuid4)
     cluster = columns.Integer(partition_key=True)
     count = columns.Integer()
@@ -848,7 +779,6 @@ class ComplexModelRouting(Model):
 
 
 class TestModelRoutingKeys(BaseCassEngTestCase):
-
     @classmethod
     def setUpClass(cls):
         super(TestModelRoutingKeys, cls).setUpClass()
@@ -880,13 +810,13 @@ class TestModelRoutingKeys(BaseCassEngTestCase):
         prepared = self.conn.session.prepare(
             """
           INSERT INTO {0}.basic_model_routing (k, v) VALUES  (?, ?)
-          """.format(DEFAULT_KEYSPACE))
+          """.format(
+                DEFAULT_KEYSPACE
+            )
+        )
         bound = prepared.bind((1, 2))
 
-        mrk = BasicModel._routing_key_from_values(
-            [1],
-            self.conn.cluster.protocol_version,
-        )
+        mrk = BasicModel._routing_key_from_values([1], self.conn.cluster.protocol_version)
         simple = SimpleStatement("")
         simple.routing_key = mrk
         self.assertEqual(bound.routing_key, simple.routing_key)
@@ -905,12 +835,12 @@ class TestModelRoutingKeys(BaseCassEngTestCase):
         prepared = self.conn.session.prepare(
             """
           INSERT INTO {0}.basic_model_routing_multi (k, v) VALUES  (?, ?)
-          """.format(DEFAULT_KEYSPACE))
-        bound = prepared.bind((1, 2))
-        mrk = BasicModelMulti._routing_key_from_values(
-            [1, 2],
-            self.conn.cluster.protocol_version,
+          """.format(
+                DEFAULT_KEYSPACE
+            )
         )
+        bound = prepared.bind((1, 2))
+        mrk = BasicModelMulti._routing_key_from_values([1, 2], self.conn.cluster.protocol_version)
         simple = SimpleStatement("")
         simple.routing_key = mrk
         self.assertEqual(bound.routing_key, simple.routing_key)
@@ -925,11 +855,14 @@ class TestModelRoutingKeys(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        prepared = self.conn.session.prepare("""
+        prepared = self.conn.session.prepare(
+            """
             INSERT INTO {0}.complex_model_routing
             (partition, cluster, count, text, float, text_2)
             VALUES  (?, ?, ?, ?, ?, ?)
-            """.format(DEFAULT_KEYSPACE)
+            """.format(
+                DEFAULT_KEYSPACE
+            )
         )
         partition = uuid4()
         cluster = 1
@@ -939,8 +872,7 @@ class TestModelRoutingKeys(BaseCassEngTestCase):
         text_2 = "text_2"
         bound = prepared.bind((partition, cluster, count, text, float, text_2))
         mrk = ComplexModelRouting._routing_key_from_values(
-            [partition, cluster, text, float],
-            self.conn.cluster.protocol_version,
+            [partition, cluster, text, float], self.conn.cluster.protocol_version
         )
         simple = SimpleStatement("")
         simple.routing_key = mrk
@@ -955,18 +887,42 @@ class TestModelRoutingKeys(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        self._check_partition_value_generation(BasicModel, SelectStatement(BasicModel.__table_name__))
-        self._check_partition_value_generation(BasicModel, DeleteStatement(BasicModel.__table_name__))
-        self._check_partition_value_generation(BasicModelMulti, SelectStatement(BasicModelMulti.__table_name__))
-        self._check_partition_value_generation(BasicModelMulti, DeleteStatement(BasicModelMulti.__table_name__))
-        self._check_partition_value_generation(ComplexModelRouting, SelectStatement(ComplexModelRouting.__table_name__))
-        self._check_partition_value_generation(ComplexModelRouting, DeleteStatement(ComplexModelRouting.__table_name__))
-        self._check_partition_value_generation(BasicModel, SelectStatement(BasicModel.__table_name__), reverse=True)
-        self._check_partition_value_generation(BasicModel, DeleteStatement(BasicModel.__table_name__), reverse=True)
-        self._check_partition_value_generation(BasicModelMulti, SelectStatement(BasicModelMulti.__table_name__), reverse=True)
-        self._check_partition_value_generation(BasicModelMulti, DeleteStatement(BasicModelMulti.__table_name__), reverse=True)
-        self._check_partition_value_generation(ComplexModelRouting, SelectStatement(ComplexModelRouting.__table_name__), reverse=True)
-        self._check_partition_value_generation(ComplexModelRouting, DeleteStatement(ComplexModelRouting.__table_name__), reverse=True)
+        self._check_partition_value_generation(
+            BasicModel, SelectStatement(BasicModel.__table_name__)
+        )
+        self._check_partition_value_generation(
+            BasicModel, DeleteStatement(BasicModel.__table_name__)
+        )
+        self._check_partition_value_generation(
+            BasicModelMulti, SelectStatement(BasicModelMulti.__table_name__)
+        )
+        self._check_partition_value_generation(
+            BasicModelMulti, DeleteStatement(BasicModelMulti.__table_name__)
+        )
+        self._check_partition_value_generation(
+            ComplexModelRouting, SelectStatement(ComplexModelRouting.__table_name__)
+        )
+        self._check_partition_value_generation(
+            ComplexModelRouting, DeleteStatement(ComplexModelRouting.__table_name__)
+        )
+        self._check_partition_value_generation(
+            BasicModel, SelectStatement(BasicModel.__table_name__), reverse=True
+        )
+        self._check_partition_value_generation(
+            BasicModel, DeleteStatement(BasicModel.__table_name__), reverse=True
+        )
+        self._check_partition_value_generation(
+            BasicModelMulti, SelectStatement(BasicModelMulti.__table_name__), reverse=True
+        )
+        self._check_partition_value_generation(
+            BasicModelMulti, DeleteStatement(BasicModelMulti.__table_name__), reverse=True
+        )
+        self._check_partition_value_generation(
+            ComplexModelRouting, SelectStatement(ComplexModelRouting.__table_name__), reverse=True
+        )
+        self._check_partition_value_generation(
+            ComplexModelRouting, DeleteStatement(ComplexModelRouting.__table_name__), reverse=True
+        )
 
     def _check_partition_value_generation(self, model, state, reverse=False):
         """
@@ -977,26 +933,22 @@ class TestModelRoutingKeys(BaseCassEngTestCase):
         # Setup some unique values for statement generation
         uuid = uuid4()
         values = {
-            'k': 5,
-            'v': 3,
-            'partition': uuid,
-            'cluster': 6,
-            'count': 42,
-            'text': 'text',
-            'float': 3.1415,
-            'text_2': 'text_2',
+            "k": 5,
+            "v": 3,
+            "partition": uuid,
+            "cluster": 6,
+            "count": 42,
+            "text": "text",
+            "float": 3.1415,
+            "text_2": "text_2",
         }
         res = dict((v, k) for k, v in values.items())
         items = list(model._partition_key_index.items())
-        if(reverse):
+        if reverse:
             items.reverse()
         # Add where clauses for each partition key
         for partition_key, position in items:
-            wc = WhereClause(
-                partition_key,
-                EqualsOperator(),
-                values.get(partition_key),
-            )
+            wc = WhereClause(partition_key, EqualsOperator(), values.get(partition_key))
             state._add_where_clause(wc)
 
         # Iterate over the partition key values check to see that their index matches

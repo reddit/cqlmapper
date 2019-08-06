@@ -13,29 +13,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from collections import namedtuple
 import json
 import logging
 import os
-import six
 import warnings
 
+from collections import namedtuple
+
+import six
+
 from cassandra import metadata
-from cqlmapper import CQLEngineException
+
 from cqlmapper import columns
-from cqlmapper.usertype import UserType
+from cqlmapper import CQLEngineException
 from cqlmapper.models import Model
+from cqlmapper.usertype import UserType
 
-CQLENG_ALLOW_SCHEMA_MANAGEMENT = 'CQLENG_ALLOW_SCHEMA_MANAGEMENT'
+CQLENG_ALLOW_SCHEMA_MANAGEMENT = "CQLENG_ALLOW_SCHEMA_MANAGEMENT"
 
-Field = namedtuple('Field', ['name', 'type'])
+Field = namedtuple("Field", ["name", "type"])
 
 log = logging.getLogger(__name__)
 
 
-def create_keyspace_simple(conn, name, replication_factor,
-                           durable_writes=True):
+def create_keyspace_simple(conn, name, replication_factor, durable_writes=True):
     """Creates a keyspace with SimpleStrategy for replica placement.
 
     If the keyspace already exists, it will not be modified.
@@ -59,16 +60,11 @@ def create_keyspace_simple(conn, name, replication_factor,
     :type: bool
     """
     _create_keyspace(
-        conn,
-        name,
-        durable_writes,
-        'SimpleStrategy',
-        {'replication_factor': replication_factor},
+        conn, name, durable_writes, "SimpleStrategy", {"replication_factor": replication_factor}
     )
 
 
-def create_keyspace_network_topology(conn, name, dc_replication_map,
-                                     durable_writes=True):
+def create_keyspace_network_topology(conn, name, dc_replication_map, durable_writes=True):
     """Creates a keyspace with NetworkTopologyStrategy for replica placement.
 
     If the keyspace already exists, it will not be modified.
@@ -92,17 +88,10 @@ def create_keyspace_network_topology(conn, name, dc_replication_map,
     :param connections: List of connection names
     :type: list
     """
-    _create_keyspace(
-        conn,
-        name,
-        durable_writes,
-        'NetworkTopologyStrategy',
-        dc_replication_map,
-    )
+    _create_keyspace(conn, name, durable_writes, "NetworkTopologyStrategy", dc_replication_map)
 
 
-def _create_keyspace(conn, name, durable_writes, strategy_class,
-                     strategy_options):
+def _create_keyspace(conn, name, durable_writes, strategy_class, strategy_options):
     if not _allow_schema_modification():
         return
 
@@ -110,12 +99,7 @@ def _create_keyspace(conn, name, durable_writes, strategy_class,
 
     if name not in cluster.metadata.keyspaces:
         log.info("Creating keyspace %s", name)
-        ks_meta = metadata.KeyspaceMetadata(
-            name,
-            durable_writes,
-            strategy_class,
-            strategy_options,
-        )
+        ks_meta = metadata.KeyspaceMetadata(name, durable_writes, strategy_class, strategy_options)
         conn.execute(ks_meta.as_cql_query())
     else:
         log.info("Not creating keyspace %s because it already exists", name)
@@ -152,7 +136,7 @@ def _get_index_name_by_column(table, column_name):
     possible_index_values = [protected_name, "values(%s)" % protected_name]
     for index_metadata in table.indexes.values():
         options = dict(index_metadata.index_options)
-        if options.get('target') in possible_index_values:
+        if options.get("target") in possible_index_values:
             return index_metadata.name
 
 
@@ -219,11 +203,7 @@ def sync_table(conn, model):
             _sync_type(conn, udt, syncd_types)
 
     if raw_cf_name not in tables:
-        log.debug(
-            "sync_table creating new table %s in keyspace %s",
-            cf_name,
-            ks_name,
-        )
+        log.debug("sync_table creating new table %s in keyspace %s", cf_name, ks_name)
         qs = _get_create_table(model)
 
         try:
@@ -234,11 +214,7 @@ def sync_table(conn, model):
             if "Cannot add already existing column family" not in unicode(ex):
                 raise
     else:
-        log.debug(
-            "sync_table checking existing table %s for keyspace %s",
-            cf_name,
-            keyspace,
-        )
+        log.debug("sync_table checking existing table %s for keyspace %s", cf_name, keyspace)
         table_meta = tables[raw_cf_name]
 
         _validate_pk(model, table_meta)
@@ -254,38 +230,23 @@ def sync_table(conn, model):
                 if col_meta.cql_type != col.db_type:
                     msg = (
                         'Existing table {0} has column "{1}" with a type '
-                        '({2}) differing from the model type ({3}). '
-                        'Model should be updated.'
+                        "({2}) differing from the model type ({3}). "
+                        "Model should be updated."
                     )
-                    msg = msg.format(
-                        cf_name,
-                        db_name,
-                        col_meta.cql_type,
-                        col.db_type,
-                    )
+                    msg = msg.format(cf_name, db_name, col_meta.cql_type, col.db_type)
                     warnings.warn(msg)
                     log.warning(msg)
 
                 continue
 
             if col.primary_key or col.primary_key:
-                msg = (
-                    "Cannot add primary key '{0}' (with db_field '{1}') to "
-                    "existing table {2}"
-                )
-                raise CQLEngineException(
-                    msg.format(model_name, db_name, cf_name)
-                )
+                msg = "Cannot add primary key '{0}' (with db_field '{1}') to " "existing table {2}"
+                raise CQLEngineException(msg.format(model_name, db_name, cf_name))
 
-            query = "ALTER TABLE {0} add {1}".format(
-                cf_name,
-                col.get_column_def(),
-            )
+            query = "ALTER TABLE {0} add {1}".format(cf_name, col.get_column_def())
             conn.execute(query)
 
-        db_fields_not_in_model = model_fields.symmetric_difference(
-            table_columns
-        )
+        db_fields_not_in_model = model_fields.symmetric_difference(table_columns)
         if db_fields_not_in_model:
             msg = "Table {0} has fields not referenced by model: {1}"
             log.info(msg.format(cf_name, db_fields_not_in_model))
@@ -302,35 +263,34 @@ def sync_table(conn, model):
         if index_name:
             continue
 
-        qs = ['CREATE INDEX']
-        qs += ['ON {0}'.format(cf_name)]
+        qs = ["CREATE INDEX"]
+        qs += ["ON {0}".format(cf_name)]
         qs += ['("{0}")'.format(column.db_field_name)]
-        qs = ' '.join(qs)
+        qs = " ".join(qs)
         conn.execute(qs)
 
 
 def _validate_pk(model, table_meta):
-    model_partition = [
-        c.db_field_name for c in model._partition_keys.values()
-    ]
+    model_partition = [c.db_field_name for c in model._partition_keys.values()]
     meta_partition = [c.name for c in table_meta.partition_key]
-    model_clustering = [
-        c.db_field_name for c in model._clustering_keys.values()
-    ]
-    meta_clustering = [
-        c.name for c in table_meta.clustering_key
-    ]
+    model_clustering = [c.db_field_name for c in model._clustering_keys.values()]
+    meta_clustering = [c.name for c in table_meta.clustering_key]
 
     if model_partition != meta_partition or model_clustering != meta_clustering:
+
         def _pk_string(partition, clustering):
-            return "PRIMARY KEY (({0}){1})".format(', '.join(partition), ', ' + ', '.join(clustering) if clustering else '')
+            return "PRIMARY KEY (({0}){1})".format(
+                ", ".join(partition), ", " + ", ".join(clustering) if clustering else ""
+            )
+
         raise CQLEngineException(
             "Model {0} PRIMARY KEY composition does not match existing table {1}. "
             "Model: {2}; Table: {3}. "
             "Update model or drop the table.".format(
-                model, model.column_family_name(),
+                model,
+                model.column_family_name(),
                 _pk_string(model_partition, model_clustering),
-                _pk_string(meta_partition, meta_clustering)
+                _pk_string(meta_partition, meta_clustering),
             )
         )
 
@@ -385,13 +345,19 @@ def _sync_type(conn, type_model, omit_subtypes=None):
         for field in type_model._fields.values():
             model_fields.add(field.db_field_name)
             if field.db_field_name not in defined_fields:
-                conn.execute("ALTER TYPE {0} ADD {1}".format(type_name_qualified, field.get_column_def()))
+                conn.execute(
+                    "ALTER TYPE {0} ADD {1}".format(type_name_qualified, field.get_column_def())
+                )
             else:
                 field_type = type_meta.field_types[defined_fields.index(field.db_field_name)]
                 if field_type != field.db_type:
-                    msg = 'Existing user type {0} has field "{1}" with a type ({2}) differing from the model user type ({3}).' + \
-                          'UserType should be updated.'
-                    msg = msg.format(type_name_qualified, field.db_field_name, field_type, field.db_type)
+                    msg = (
+                        'Existing user type {0} has field "{1}" with a type ({2}) differing from the model user type ({3}).'
+                        + "UserType should be updated."
+                    )
+                    msg = msg.format(
+                        type_name_qualified, field.db_field_name, field_type, field.db_type
+                    )
                     warnings.warn(msg)
                     log.warning(msg)
         conn.register_udt(type_model.type_name(), type_model)
@@ -407,16 +373,18 @@ def _sync_type(conn, type_model, omit_subtypes=None):
 
 
 def get_create_type(type_model, keyspace):
-    type_meta = metadata.UserType(keyspace,
-                                  type_model.type_name(),
-                                  (f.db_field_name for f in type_model._fields.values()),
-                                  (v.db_type for v in type_model._fields.values()))
+    type_meta = metadata.UserType(
+        keyspace,
+        type_model.type_name(),
+        (f.db_field_name for f in type_model._fields.values()),
+        (v.db_type for v in type_model._fields.values()),
+    )
     return type_meta.as_cql_query()
 
 
 def _get_create_table(model):
     ks_table_name = model.column_family_name()
-    query_strings = ['CREATE TABLE {0}'.format(ks_table_name)]
+    query_strings = ["CREATE TABLE {0}".format(ks_table_name)]
 
     # add column types
     pkeys = []  # primary keys
@@ -426,7 +394,7 @@ def _get_create_table(model):
     def add_column(col):
         s = col.get_column_def()
         if col.primary_key:
-            keys = (pkeys if col.partition_key else ckeys)
+            keys = pkeys if col.partition_key else ckeys
             keys.append('"{0}"'.format(col.db_field_name))
         qtypes.append(s)
 
@@ -434,33 +402,27 @@ def _get_create_table(model):
         add_column(col)
 
     qtypes.append(
-        'PRIMARY KEY (({0}){1})'.format(
-            ', '.join(pkeys), ckeys and ', ' + ', '.join(ckeys) or ''
-        )
+        "PRIMARY KEY (({0}){1})".format(", ".join(pkeys), ckeys and ", " + ", ".join(ckeys) or "")
     )
 
-    query_strings += ['({0})'.format(', '.join(qtypes))]
+    query_strings += ["({0})".format(", ".join(qtypes))]
 
     property_strings = []
 
     _order = [
-        '"{0}" {1}'.format(c.db_field_name, c.clustering_order or 'ASC') for
-        c in model._clustering_keys.values()
+        '"{0}" {1}'.format(c.db_field_name, c.clustering_order or "ASC")
+        for c in model._clustering_keys.values()
     ]
     if _order:
-        property_strings.append(
-            'CLUSTERING ORDER BY ({0})'.format(', '.join(_order))
-        )
+        property_strings.append("CLUSTERING ORDER BY ({0})".format(", ".join(_order)))
 
     # options strings use the V3 format, which matches CQL more closely and does not require mapping
-    property_strings += metadata.TableMetadataV3._make_option_strings(
-        model.__options__ or {}
-    )
+    property_strings += metadata.TableMetadataV3._make_option_strings(model.__options__ or {})
 
     if property_strings:
-        query_strings += ['WITH {0}'.format(' AND '.join(property_strings))]
+        query_strings += ["WITH {0}".format(" AND ".join(property_strings))]
 
-    return ' '.join(query_strings)
+    return " ".join(query_strings)
 
 
 def _get_table_metadata(conn, model):
@@ -475,10 +437,12 @@ def _options_map_from_strings(option_strings):
     # converts options strings to a mapping to strings or dict
     options = {}
     for option in option_strings:
-        name, value = option.split('=')
-        i = value.find('{')
+        name, value = option.split("=")
+        i = value.find("{")
         if i >= 0:
-            value = value[i:value.rfind('}') + 1].replace("'", '"')  # from cql single quotes to json double; not aware of any values that would be escaped right now
+            value = value[i : value.rfind("}") + 1].replace(
+                "'", '"'
+            )  # from cql single quotes to json double; not aware of any values that would be escaped right now
             value = json.loads(value)
         else:
             value = value.strip()
@@ -502,13 +466,9 @@ def _update_options(conn, model):
 
     table_meta = _get_table_metadata(conn, model)
     # go to CQL string first to normalize meta from different versions
-    existing_option_strings = set(
-        table_meta._make_option_strings(table_meta.options)
-    )
+    existing_option_strings = set(table_meta._make_option_strings(table_meta.options))
     existing_options = _options_map_from_strings(existing_option_strings)
-    model_option_strings = metadata.TableMetadataV3._make_option_strings(
-        model_options
-    )
+    model_option_strings = metadata.TableMetadataV3._make_option_strings(model_options)
     model_options = _options_map_from_strings(model_option_strings)
 
     update_options = {}
@@ -531,7 +491,7 @@ def _update_options(conn, model):
                 update_options[name] = value
 
     if update_options:
-        options = ' AND '.join(metadata.TableMetadataV3._make_option_strings(update_options))
+        options = " AND ".join(metadata.TableMetadataV3._make_option_strings(update_options))
         query = "ALTER TABLE {0} WITH {1}".format(model.column_family_name(), options)
         conn.execute(query)
         return True
@@ -563,16 +523,17 @@ def drop_table(conn, model):
 
     try:
         conn.cluster.metadata.keyspaces[ks_name].tables[raw_cf_name]
-        conn.execute(
-            'DROP TABLE {0};'.format(model.column_family_name())
-        )
+        conn.execute("DROP TABLE {0};".format(model.column_family_name()))
     except KeyError:
         pass
 
 
 def _allow_schema_modification():
     if not os.getenv(CQLENG_ALLOW_SCHEMA_MANAGEMENT):
-        msg = CQLENG_ALLOW_SCHEMA_MANAGEMENT + " environment variable is not set. Future versions of this package will require this variable to enable management functions."
+        msg = (
+            CQLENG_ALLOW_SCHEMA_MANAGEMENT
+            + " environment variable is not set. Future versions of this package will require this variable to enable management functions."
+        )
         warnings.warn(msg)
         log.warning(msg)
 

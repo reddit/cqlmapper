@@ -25,7 +25,6 @@ from cqlmapper.usertype import UserType
 
 
 class UDTTest(unittest.TestCase):
-
     def test_initialization_without_existing_connection(self):
         """
         Test that users can define models with UDTs without initializing
@@ -38,6 +37,6 @@ class UDTTest(unittest.TestCase):
             t = columns.Text()
 
         class DummyUDT(Model):
-            __keyspace__ = 'ks'
+            __keyspace__ = "ks"
             primary_key = columns.Integer(primary_key=True)
             value = columns.UserDefinedType(Value)

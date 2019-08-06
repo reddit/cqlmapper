@@ -13,20 +13,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from uuid import uuid4
 import warnings
 
-from cqlmapper import columns, CQLEngineException
-from cqlmapper.models import (
-    Model,
-    ModelException,
-    ModelDefinitionException,
-)
+from tests.integration.base import BaseCassEngTestCase
+from uuid import uuid4
+
+from cqlmapper import columns
+from cqlmapper import CQLEngineException
+from cqlmapper.models import Model
+from cqlmapper.models import ModelDefinitionException
+from cqlmapper.models import ModelException
 from cqlmapper.query import DMLQuery
 from cqlmapper.query_set import ModelQuerySet
-
-from tests.integration.base import BaseCassEngTestCase
 
 
 class TestModelClassFunction(BaseCassEngTestCase):
@@ -46,14 +44,14 @@ class TestModelClassFunction(BaseCassEngTestCase):
             text = columns.Text()
 
         # check class attibutes
-        self.assertHasAttr(TestModel, '_columns')
-        self.assertHasAttr(TestModel, 'id')
-        self.assertHasAttr(TestModel, 'text')
+        self.assertHasAttr(TestModel, "_columns")
+        self.assertHasAttr(TestModel, "id")
+        self.assertHasAttr(TestModel, "text")
 
         # check instance attributes
         inst = TestModel()
-        self.assertHasAttr(inst, 'id')
-        self.assertHasAttr(inst, 'text')
+        self.assertHasAttr(inst, "id")
+        self.assertHasAttr(inst, "text")
         self.assertIsNotNone(inst.id)
         self.assertIsNone(inst.text)
 
@@ -63,35 +61,36 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """
 
         class TestPerson(Model):
-            first_name = columns.Text(primary_key=True, default='kevin')
-            last_name = columns.Text(default='deldycke')
+            first_name = columns.Text(primary_key=True, default="kevin")
+            last_name = columns.Text(default="deldycke")
 
         # Check that defaults are available at instantiation.
         inst1 = TestPerson()
-        self.assertHasAttr(inst1, 'first_name')
-        self.assertHasAttr(inst1, 'last_name')
-        self.assertEqual(inst1.first_name, 'kevin')
-        self.assertEqual(inst1.last_name, 'deldycke')
+        self.assertHasAttr(inst1, "first_name")
+        self.assertHasAttr(inst1, "last_name")
+        self.assertEqual(inst1.first_name, "kevin")
+        self.assertEqual(inst1.last_name, "deldycke")
 
         # Check that values on instantiation overrides defaults.
-        inst2 = TestPerson(first_name='bob', last_name='joe')
-        self.assertEqual(inst2.first_name, 'bob')
-        self.assertEqual(inst2.last_name, 'joe')
+        inst2 = TestPerson(first_name="bob", last_name="joe")
+        self.assertEqual(inst2.first_name, "bob")
+        self.assertEqual(inst2.last_name, "joe")
 
     def test_db_map(self):
         """
         Tests that the db_map is properly defined
         -the db_map allows columns
         """
+
         class WildDBNames(Model):
 
             id = columns.UUID(primary_key=True, default=uuid4)
-            content = columns.Text(db_field='words_and_whatnot')
-            numbers = columns.Integer(db_field='integers_etc')
+            content = columns.Text(db_field="words_and_whatnot")
+            numbers = columns.Integer(db_field="integers_etc")
 
         db_map = WildDBNames._db_map
-        self.assertEqual(db_map['words_and_whatnot'], 'content')
-        self.assertEqual(db_map['integers_etc'], 'numbers')
+        self.assertEqual(db_map["words_and_whatnot"], "content")
+        self.assertEqual(db_map["integers_etc"], "numbers")
 
     def test_attempting_to_make_duplicate_column_names_fails(self):
         """
@@ -99,9 +98,10 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """
 
         with self.assertRaisesRegexp(ModelException, r".*more than once$"):
+
             class BadNames(Model):
                 words = columns.Text(primary_key=True)
-                content = columns.Text(db_field='words')
+                content = columns.Text(db_field="words")
 
     def test_column_ordering_is_preserved(self):
         """
@@ -111,18 +111,16 @@ class TestModelClassFunction(BaseCassEngTestCase):
 
         class Stuff(Model):
 
-            id  = columns.UUID(primary_key=True, default=uuid4)
+            id = columns.UUID(primary_key=True, default=uuid4)
             words = columns.Text()
             content = columns.Text()
             numbers = columns.Integer()
 
-        self.assertEqual(
-            [x for x in Stuff._columns.keys()],
-            ['id', 'words', 'content', 'numbers'],
-        )
+        self.assertEqual([x for x in Stuff._columns.keys()], ["id", "words", "content", "numbers"])
 
     def test_exception_raised_when_creating_class_without_pk(self):
         with self.assertRaises(ModelDefinitionException):
+
             class TestModel(Model):
 
                 count = columns.Integer()
@@ -132,6 +130,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """
         Tests that instance value managers are isolated from other instances
         """
+
         class Stuff(Model):
 
             id = columns.UUID(primary_key=True, default=uuid4)
@@ -148,6 +147,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
         """
         Tests that fields defined on the super class are inherited properly
         """
+
         class TestModel(Model):
 
             id = columns.UUID(primary_key=True, default=uuid4)
@@ -156,22 +156,24 @@ class TestModelClassFunction(BaseCassEngTestCase):
         class InheritedModel(TestModel):
             numbers = columns.Integer()
 
-        assert 'text' in InheritedModel._columns
-        assert 'numbers' in InheritedModel._columns
+        assert "text" in InheritedModel._columns
+        assert "numbers" in InheritedModel._columns
 
     def test_column_family_name_generation(self):
         """ Tests that auto column family name generation works as expected """
+
         class TestModel(Model):
 
             id = columns.UUID(primary_key=True, default=uuid4)
             text = columns.Text()
 
-        assert TestModel.column_family_name() == 'test_model'
+        assert TestModel.column_family_name() == "test_model"
 
     def test_partition_keys(self):
         """
         Test compound partition key definition
         """
+
         class ModelWithPartitionKeys(Model):
 
             id = columns.UUID(primary_key=True, default=uuid4)
@@ -181,19 +183,20 @@ class TestModelClassFunction(BaseCassEngTestCase):
 
         cols = ModelWithPartitionKeys._columns
 
-        self.assertTrue(cols['c1'].primary_key)
-        self.assertFalse(cols['c1'].partition_key)
+        self.assertTrue(cols["c1"].primary_key)
+        self.assertFalse(cols["c1"].partition_key)
 
-        self.assertTrue(cols['p1'].primary_key)
-        self.assertTrue(cols['p1'].partition_key)
-        self.assertTrue(cols['p2'].primary_key)
-        self.assertTrue(cols['p2'].partition_key)
+        self.assertTrue(cols["p1"].primary_key)
+        self.assertTrue(cols["p1"].partition_key)
+        self.assertTrue(cols["p2"].primary_key)
+        self.assertTrue(cols["p2"].partition_key)
 
-        obj = ModelWithPartitionKeys(p1='a', p2='b')
-        self.assertEqual(obj.pk, ('a', 'b'))
+        obj = ModelWithPartitionKeys(p1="a", p2="b")
+        self.assertEqual(obj.pk, ("a", "b"))
 
     def test_del_attribute_is_assigned_properly(self):
         """ Tests that columns that can be deleted have the del attribute """
+
         class DelModel(Model):
 
             id = columns.UUID(primary_key=True, default=uuid4)
@@ -250,6 +253,7 @@ class TestModelClassFunction(BaseCassEngTestCase):
 
     def test_abstract_model_keyspace_warning_is_skipped(self):
         with warnings.catch_warnings(record=True) as warn:
+
             class NoKeyspace(Model):
                 __abstract__ = True
                 key = columns.UUID(primary_key=True)
@@ -258,26 +262,24 @@ class TestModelClassFunction(BaseCassEngTestCase):
 
 
 class TestManualTableNaming(BaseCassEngTestCase):
-
     class RenamedTest(Model):
-        __table_name__ = 'manual_name'
+        __table_name__ = "manual_name"
 
         id = columns.UUID(primary_key=True)
         data = columns.Text()
 
     def test_proper_table_naming(self):
-        assert self.RenamedTest.column_family_name() == 'manual_name'
+        assert self.RenamedTest.column_family_name() == "manual_name"
 
 
 class TestManualTableNamingCaseSensitive(BaseCassEngTestCase):
-
     class RenamedCaseInsensitiveTest(Model):
-        __table_name__ = 'Manual_Name'
+        __table_name__ = "Manual_Name"
 
         id = columns.UUID(primary_key=True)
 
     class RenamedCaseSensitiveTest(Model):
-        __table_name__ = 'Manual_Name'
+        __table_name__ = "Manual_Name"
         __table_name_case_sensitive__ = True
 
         id = columns.UUID(primary_key=True)
@@ -292,10 +294,7 @@ class TestManualTableNamingCaseSensitive(BaseCassEngTestCase):
 
         @test_category object_mapper
         """
-        self.assertEqual(
-            self.RenamedCaseInsensitiveTest.column_family_name(),
-            'manual_name'
-        )
+        self.assertEqual(self.RenamedCaseInsensitiveTest.column_family_name(), "manual_name")
 
     def test_proper_table_naming_case_sensitive(self):
         """
@@ -308,10 +307,7 @@ class TestManualTableNamingCaseSensitive(BaseCassEngTestCase):
         @test_category object_mapper
         """
 
-        self.assertEqual(
-            self.RenamedCaseSensitiveTest.column_family_name(),
-            '"Manual_Name"',
-        )
+        self.assertEqual(self.RenamedCaseSensitiveTest.column_family_name(), '"Manual_Name"')
 
 
 class AbstractModel(Model):
@@ -341,17 +337,16 @@ class AbstractModelWithFullCols(Model):
 
 
 class TestAbstractModelClasses(BaseCassEngTestCase):
-
     def test_id_field_is_not_created(self):
         """
         Tests that an id field is not automatically generated on abstract
         classes
         """
-        assert not hasattr(AbstractModel, 'id')
-        assert not hasattr(AbstractModelWithCol, 'id')
+        assert not hasattr(AbstractModel, "id")
+        assert not hasattr(AbstractModelWithCol, "id")
 
     def test_id_field_is_not_created_on_subclass(self):
-        assert not hasattr(ConcreteModel, 'id')
+        assert not hasattr(ConcreteModel, "id")
 
     def test_abstract_attribute_is_not_inherited(self):
         """ Tests that __abstract__ attribute is not inherited """
@@ -366,6 +361,7 @@ class TestAbstractModelClasses(BaseCassEngTestCase):
     def test_attempting_to_create_abstract_table_fails(self):
         """ Attempting to create a table from an abstract model should fail """
         from cqlmapper.management import sync_table
+
         with self.assertRaises(CQLEngineException):
             sync_table(self.conn, AbstractModelWithFullCols)
 
@@ -379,11 +375,8 @@ class TestAbstractModelClasses(BaseCassEngTestCase):
         Tests that columns defined in the abstract class are inherited
         into the concrete class
         """
-        assert hasattr(ConcreteModelWithCol, 'pkey')
-        assert isinstance(
-            ConcreteModelWithCol._columns['pkey'],
-            columns.Column,
-        )
+        assert hasattr(ConcreteModelWithCol, "pkey")
+        assert isinstance(ConcreteModelWithCol._columns["pkey"], columns.Column)
 
     def test_concrete_class_table_creation_cycle(self):
         """
@@ -391,6 +384,7 @@ class TestAbstractModelClasses(BaseCassEngTestCase):
         have io performed
         """
         from cqlmapper.management import sync_table, drop_table
+
         sync_table(self.conn, ConcreteModelWithCol)
 
         w1 = ConcreteModelWithCol.create(self.conn, pkey=5, data=6)

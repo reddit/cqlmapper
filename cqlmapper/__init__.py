@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import six
 
 from cassandra.cluster import _NOT_SET
@@ -46,6 +45,7 @@ class LWTException(CQLEngineException):
 
     :param existing: The current state of the data which prevented the write.
     """
+
     def __init__(self, existing):
         super(LWTException, self).__init__("LWT Query was not applied")
         self.existing = existing
@@ -63,4 +63,4 @@ class UnicodeMixin(object):
     if six.PY3:
         __str__ = lambda x: x.__unicode__()
     else:
-        __str__ = lambda x: six.text_type(x).encode('utf-8')
+        __str__ = lambda x: six.text_type(x).encode("utf-8")

@@ -13,18 +13,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import logging
+
 import six
 
 from cassandra.cluster import UserTypeDoesNotExist
-from cassandra.query import SimpleStatement, dict_factory
-from cqlmapper import (
-    ConnectionInterface,
-    CQLEngineException,
-    LWTException,
-    TIMEOUT_NOT_SET,
-)
+from cassandra.query import dict_factory
+from cassandra.query import SimpleStatement
+
+from cqlmapper import ConnectionInterface
+from cqlmapper import CQLEngineException
+from cqlmapper import LWTException
+from cqlmapper import TIMEOUT_NOT_SET
 from cqlmapper.query import DMLQuery
 from cqlmapper.statements import BaseCQLStatement
 
@@ -67,13 +67,10 @@ class Connection(ConnectionInterface):
             fetch_size=query_statement.fetch_size,
         )
         if query.model._partition_key_index:
-            key_values = query_statement.partition_key_values(
-                query.model._partition_key_index
-            )
+            key_values = query_statement.partition_key_values(query.model._partition_key_index)
             if not any(v is None for v in key_values):
                 parts = query.model._routing_key_from_values(
-                    key_values,
-                    self.cluster.protocol_version
+                    key_values, self.cluster.protocol_version
                 )
                 statement.routing_key = parts
                 statement.keyspace = self.keyspace
@@ -82,21 +79,12 @@ class Connection(ConnectionInterface):
     def _excecute_dml_query(self, query):
         result = None
         if query.statement:
-            statement, params = self._prepare_query_statement(
-                query,
-                query.statement
-            )
+            statement, params = self._prepare_query_statement(query, query.statement)
             result = self.execute(
-                statement,
-                params=params,
-                timeout=query.timeout,
-                verify_applied=query.check_applied,
+                statement, params=params, timeout=query.timeout, verify_applied=query.check_applied
             )
         if query.cleanup_statement:
-            c_statement, c_params = self._prepare_query_statement(
-                query,
-                query.cleanup_statement
-            )
+            c_statement, c_params = self._prepare_query_statement(query, query.cleanup_statement)
             self.execute(
                 c_statement,
                 params=c_params,
@@ -105,8 +93,14 @@ class Connection(ConnectionInterface):
             )
         return result
 
-    def execute(self, statement_or_query, params=None, consistency_level=None,
-                timeout=TIMEOUT_NOT_SET, verify_applied=False):
+    def execute(
+        self,
+        statement_or_query,
+        params=None,
+        consistency_level=None,
+        timeout=TIMEOUT_NOT_SET,
+        verify_applied=False,
+    ):
         if isinstance(statement_or_query, DMLQuery):
             return self._excecute_dml_query(statement_or_query)
         elif isinstance(statement_or_query, SimpleStatement):
@@ -120,19 +114,12 @@ class Connection(ConnectionInterface):
             )
         elif isinstance(statement_or_query, six.string_types):
             statement_or_query = SimpleStatement(
-                statement_or_query,
-                consistency_level=consistency_level,
+                statement_or_query, consistency_level=consistency_level
             )
         else:
-            raise ValueError(
-                "Unexpected query type %s", type(statement_or_query)
-            )
+            raise ValueError("Unexpected query type %s", type(statement_or_query))
 
-        result = self.session.execute(
-            statement_or_query,
-            params,
-            timeout=timeout,
-        )
+        result = self.session.execute(statement_or_query, params, timeout=timeout)
         if verify_applied:
             check_applied(result)
         return result

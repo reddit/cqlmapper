@@ -13,21 +13,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import time
-from datetime import datetime, timedelta
 
-import six
+from datetime import datetime
+from datetime import timedelta
 from warnings import warn
 
-from cqlmapper import TIMEOUT_NOT_SET, CQLEngineException, ConnectionInterface
+import six
+
+from cqlmapper import ConnectionInterface
+from cqlmapper import CQLEngineException
+from cqlmapper import TIMEOUT_NOT_SET
 from cqlmapper.query import DMLQuery
-from cqlmapper.statements import (
-    BaseCQLStatement,
-    DeleteStatement,
-    UpdateStatement,
-    InsertStatement,
-)
+from cqlmapper.statements import BaseCQLStatement
+from cqlmapper.statements import DeleteStatement
+from cqlmapper.statements import InsertStatement
+from cqlmapper.statements import UpdateStatement
 
 
 class Batch(ConnectionInterface):
@@ -39,8 +40,15 @@ class Batch(ConnectionInterface):
 
     _consistency = None
 
-    def __init__(self, conn, batch_type=None, timestamp=None, consistency=None,
-                 execute_on_exception=False, timeout=TIMEOUT_NOT_SET):
+    def __init__(
+        self,
+        conn,
+        batch_type=None,
+        timestamp=None,
+        consistency=None,
+        execute_on_exception=False,
+        timeout=TIMEOUT_NOT_SET,
+    ):
         """
         :param conn: Cassandra connection wrapper used to execute the batched
             queries.
@@ -72,9 +80,7 @@ class Batch(ConnectionInterface):
         self.queries = []
         self.batch_type = batch_type
         if timestamp is not None and not isinstance(timestamp, (datetime, timedelta)):
-            raise CQLEngineException(
-                'timestamp object must be an instance of datetime'
-            )
+            raise CQLEngineException("timestamp object must be an instance of datetime")
         self.timestamp = timestamp
         self.consistency = consistency
         self._execute_on_exception = execute_on_exception
@@ -92,27 +98,18 @@ class Batch(ConnectionInterface):
             if query.cleanup_statement:
                 self._add_query(query.cleanup_statement)
         elif isinstance(query, BaseCQLStatement):
-            batch_statement_types = (
-                InsertStatement,
-                UpdateStatement,
-                DeleteStatement,
-            )
+            batch_statement_types = (InsertStatement, UpdateStatement, DeleteStatement)
             if not isinstance(query, batch_statement_types):
                 raise CQLEngineException(
-                    "Only inserts, updates, and deletes are available in "
-                    "batch mode"
+                    "Only inserts, updates, and deletes are available in " "batch mode"
                 )
             return self._add_query(query)
         else:
-            raise ValueError(
-                "Unexpected type for query <%s>" % type(query)
-            )
+            raise ValueError("Unexpected type for query <%s>" % type(query))
 
     def _add_query(self, query):
         if not isinstance(query, BaseCQLStatement):
-            raise CQLEngineException(
-                'only BaseCQLStatements can be added to a batch query'
-            )
+            raise CQLEngineException("only BaseCQLStatements can be added to a batch query")
         self.queries.append(query)
 
     def add_callback(self, fn, *args, **kwargs):
@@ -133,15 +130,12 @@ class Batch(ConnectionInterface):
         """
         if not callable(fn):
             raise ValueError(
-                "Value for argument 'fn' is {0} and is not a callable "
-                "object.".format(type(fn))
+                "Value for argument 'fn' is {0} and is not a callable " "object.".format(type(fn))
             )
         self._callbacks.append((fn, args, kwargs))
 
     def _prepare(self):
-        opener = 'BEGIN ' + (
-            self.batch_type + ' ' if self.batch_type else ''
-        ) + ' BATCH'
+        opener = "BEGIN " + (self.batch_type + " " if self.batch_type else "") + " BATCH"
         if self.timestamp:
             if isinstance(self.timestamp, six.integer_types):
                 ts = self.timestamp
@@ -149,13 +143,11 @@ class Batch(ConnectionInterface):
                 ts = self.timestamp
                 if isinstance(self.timestamp, timedelta):
                     ts += datetime.now()  # Apply timedelta
-                ts = int(time.mktime(ts.timetuple()) * 1e+6 + ts.microsecond)
+                ts = int(time.mktime(ts.timetuple()) * 1e6 + ts.microsecond)
             else:
-                raise ValueError(
-                    "Batch expects a long, a timedelta, or a datetime"
-                )
+                raise ValueError("Batch expects a long, a timedelta, or a datetime")
 
-            opener += ' USING TIMESTAMP {0}'.format(ts)
+            opener += " USING TIMESTAMP {0}".format(ts)
 
         query_list = [opener]
         parameters = {}
@@ -164,17 +156,12 @@ class Batch(ConnectionInterface):
             query.update_context_id(ctx_counter)
             ctx = query.get_context()
             ctx_counter += len(ctx)
-            query_list.append('  ' + str(query))
+            query_list.append("  " + str(query))
             parameters.update(ctx)
 
-        query_list.append('APPLY BATCH;')
+        query_list.append("APPLY BATCH;")
 
-        return (
-            '\n'.join(query_list),
-            parameters,
-            self.consistency,
-            self.timeout,
-        )
+        return ("\n".join(query_list), parameters, self.consistency, self.timeout)
 
     def execute_batch(self):
         """Execute all currently batched queries and call any callbacks if
@@ -224,4 +211,3 @@ class Batch(ConnectionInterface):
             return
         self.execute_batch()
         self._context_entered = False
-
