@@ -71,7 +71,7 @@ def get_server_versions():
     if cass_version is not None:
         return (cass_version, cql_version)
 
-    c = Cluster()
+    c = Cluster(["cassandra"])
     s = c.connect()
     row = s.execute("SELECT cql_version, release_version FROM system.local")[0]
 
@@ -103,7 +103,7 @@ def get_connection(keyspace_name=DEFAULT_KEYSPACE):
     global _connections
     if keyspace_name not in _connections:
 
-        c = Cluster(contact_points=["127.0.0.1"], protocol_version=PROTOCOL_VERSION)
+        c = Cluster(contact_points=["cassandra"], protocol_version=PROTOCOL_VERSION)
         session = c.connect(keyspace_name)
         _connections[keyspace_name] = connection.Connection(session)
     return _connections[keyspace_name]

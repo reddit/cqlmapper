@@ -16,10 +16,9 @@
 import copy
 
 from tests.integration.base import BaseCassEngTestCase
+from unittest.mock import patch
 
 import six
-
-from mock import patch
 
 from cqlmapper import columns
 from cqlmapper.management import _get_table_metadata

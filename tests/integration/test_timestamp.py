@@ -19,9 +19,8 @@ from datetime import datetime
 from datetime import timedelta
 from tests.integration.base import BaseCassEngTestCase
 from tests.integration.base import main
+from unittest import mock
 from uuid import uuid4
-
-import mock
 
 from cqlmapper import columns
 from cqlmapper.batch import Batch

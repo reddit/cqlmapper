@@ -18,7 +18,7 @@ try:
 except ImportError:
     import unittest  # noqa
 
-from mock import patch
+from unittest.mock import patch
 
 from cqlmapper import columns, CQLEngineException
 from cqlmapper.management import sync_table, drop_table, create_keyspace_simple, drop_keyspace

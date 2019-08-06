@@ -1,0 +1,19 @@
+version: '3'
+services:
+    cassandra:
+        image: cassandra
+        ports:
+            - "9042"
+    cqlmapper:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        volumes:
+            - .:/src
+        ports:
+            - "127.0.0.1:9090:9090"
+        links:
+            - cassandra
+        restart: always
+        depends_on:
+            - cassandra

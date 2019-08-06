@@ -14,9 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from tests.integration.base import BaseCassEngTestCase
+from unittest import mock
 from uuid import uuid4
-
-import mock
 
 from cassandra import ConsistencyLevel
 from cassandra import ConsistencyLevel as CL

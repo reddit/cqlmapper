@@ -18,7 +18,7 @@ try:
 except ImportError:
     import unittest  # noqa
 
-import mock
+from unittest import mock
 import six
 from uuid import uuid4
 

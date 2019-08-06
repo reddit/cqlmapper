@@ -35,7 +35,7 @@ from cqlmapper.query import QueryException
 from tests.integration import PROTOCOL_VERSION, CASSANDRA_VERSION, execute_count
 from tests.integration.base import BaseCassEngTestCase, main
 
-import mock
+from unittest import mock
 
 
 class TzOffset(tzinfo):

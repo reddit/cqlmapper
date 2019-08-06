@@ -1,0 +1,9 @@
+# Any paths in this file will be excluded from Docker images for the service.
+# For more detail, see: https://docs.docker.com/engine/reference/builder/#dockerignore-file
+/*.egg-info
+/.drone.yml
+/.dockerignore
+/puppet
+/docker-compose.yml
+/Vagrantfile
+/Dockerfile
