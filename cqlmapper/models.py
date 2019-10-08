@@ -649,9 +649,9 @@ class BaseModel(object):
                     value = columns.Text()
 
                 valid_simple = SimpleModel.load_many(conn, ["fizz", "buzz"])
-                valid_simple = SimpleModel.load_many(conn, [{"key": "fizz"}, {"key, "buzz"}])
+                valid_simple = SimpleModel.load_many(conn, [{"key": "fizz"}, {"key: "buzz"}])
                 try:
-                    invalid_simple = SimpleModel.load_many(conn, ["fizz", {"key, "buzz"}])
+                    invalid_simple = SimpleModel.load_many(conn, ["fizz", {"key: "buzz"}])
                 except TypeError:
                     pass
 
