@@ -688,8 +688,7 @@ class BaseModel(object):
         args_str = " ".join("{key} = ?".format(key) for key in pks)
         statement = conn.session.prepare(
             "SELECT * FROM {cf_name} WHERE {args}".format(
-                cf_name=cls.column_family_name(),
-                args=args_str,
+                cf_name=cls.column_family_name(), args=args_str
             )
         )
         results = execute_concurrent_with_args(
@@ -708,7 +707,9 @@ class BaseModel(object):
                     values = values._asdict()
                 elif not isinstance(values, dict):
                     # The 'tuple' row factory is not supported
-                    raise TypeError("The type returned by 'session.execute' must be a dict or a namedtuple")
+                    raise TypeError(
+                        "The type returned by 'session.execute' must be a dict or a namedtuple"
+                    )
                 models.append(cls._construct_instance(values))
         return models
 
