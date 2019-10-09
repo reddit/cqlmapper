@@ -685,7 +685,7 @@ class BaseModel(object):
             keys = [{pks[0]: value} for value in keys]
 
         parameters = [tuple(key_values[key] for key in pks) for key_values in keys]
-        args_str = " ".join("{key} = ?".format(key) for key in pks)
+        args_str = " AND ".join("{key} = ?".format(key=key) for key in pks)
         statement = conn.session.prepare(
             "SELECT * FROM {cf_name} WHERE {args}".format(
                 cf_name=cls.column_family_name(), args=args_str

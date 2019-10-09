@@ -23,6 +23,7 @@ import random
 from datetime import datetime, date, time
 from decimal import Decimal
 from operator import itemgetter
+from unittest.mock import Mock
 
 from cqlmapper import columns
 from cqlmapper import CQLEngineException
@@ -956,3 +957,94 @@ class TestModelRoutingKeys(BaseCassEngTestCase):
         for indx, value in enumerate(state.partition_key_values(model._partition_key_index)):
             name = res.get(value)
             self.assertEqual(indx, model._partition_key_index.get(name))
+
+
+class SimpleModel(Model):
+    key = columns.Text(primary_key=True)
+    value = columns.Text()
+
+
+class ComplexModel(Model):
+    pk = columns.Text(primary_key=True)
+    ck = columns.Integer(primary_key=True)
+    value = columns.Text()
+
+
+class TestLoadMany(BaseCassEngTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super(TestLoadMany, cls).setUpClass()
+        conn = cls.connection()
+        sync_table(conn, SimpleModel)
+        sync_table(conn, ComplexModel)
+        SimpleModel.create(conn, key="alpha", value="omega")
+        SimpleModel.create(conn, key="foo", value="bar")
+        SimpleModel.create(conn, key="zip", value="zap")
+        ComplexModel.create(conn, pk="fizz", ck=0, value="buzz")
+        ComplexModel.create(conn, pk="fizz", ck=1, value="hunter2")
+        ComplexModel.create(conn, pk="key", ck=0, value="value")
+
+    @classmethod
+    def tearDownClass(cls):
+        super(TestLoadMany, cls).tearDownClass()
+        conn = cls.connection()
+        drop_table(conn, SimpleModel)
+        drop_table(conn, ComplexModel)
+
+    def test_empty_keys(self):
+        conn = Mock()
+        models = SimpleModel.load_many(conn, [])
+        self.assertEqual(models, [])
+        self.assertEqual(conn.session.prepare.call_count, 0)
+        self.assertEqual(conn.session.execute_async.call_count, 0)
+
+    def test_invalid_concurrency(self):
+        with self.assertRaises(ValueError):
+            SimpleModel.load_many(self.conn, ["foo"], concurrency=0)
+        with self.assertRaises(ValueError):
+            SimpleModel.load_many(self.conn, ["foo"], concurrency=-1)
+        with self.assertRaises(TypeError):
+            SimpleModel.load_many(self.conn, ["foo"], concurrency=None)
+        with self.assertRaises(TypeError):
+            SimpleModel.load_many(self.conn, ["foo"], concurrency="1")
+
+    def test_simple_model_ids_only(self):
+        models = SimpleModel.load_many(self.conn, ["foo", "zip"])
+        models.sort(key=lambda m: (m.key, m.value))
+        self.assertEqual(
+            models, [SimpleModel(key="foo", value="bar"), SimpleModel(key="zip", value="zap")]
+        )
+
+    def test_simple_model_dicts_only(self):
+        models = SimpleModel.load_many(self.conn, [{"key": "foo"}, {"key": "alpha"}])
+        models.sort(key=lambda m: (m.key, m.value))
+        self.assertEqual(
+            models, [SimpleModel(key="alpha", value="omega"), SimpleModel(key="foo", value="bar")]
+        )
+
+    def test_simple_model_mixed_errors(self):
+        with self.assertRaises(AttributeError):
+            SimpleModel.load_many(self.conn, ["foo", {"key": "alpha"}])
+        with self.assertRaises(TypeError):
+            SimpleModel.load_many(self.conn, [{"key": "alpha"}, "alpha"])
+
+    def test_complex_model(self):
+        models = ComplexModel.load_many(
+            self.conn, [{"pk": "fizz", "ck": 0}, {"pk": "key", "ck": 0}]
+        )
+        models.sort(key=lambda m: (m.pk, m.ck, m.value))
+        self.assertEqual(
+            models,
+            [
+                ComplexModel(pk="fizz", ck=0, value="buzz"),
+                ComplexModel(pk="key", ck=0, value="value"),
+            ],
+        )
+
+    def test_complex_model_missing_key(self):
+        with self.assertRaises(KeyError):
+            ComplexModel.load_many(self.conn, [{"pk": "fizz"}])
+
+    def test_complex_model_simple_input(self):
+        with self.assertRaises(TypeError):
+            ComplexModel.load_many(self.conn, ["fizz"])
