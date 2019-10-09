@@ -644,8 +644,8 @@ class BaseModel(object):
                     value = columns.Text()
 
                 class ComplexModel(Model):
-                    pk = columns.Text(primary_key=True)
-                    ck = colums.Integer(primary_key=True)
+                    pk = columns.Text(primary_key=True)  # partition key
+                    ck = colums.Integer(primary_key=True)  # clustering
                     value = columns.Text()
 
                 valid_simple = SimpleModel.load_many(conn, ["fizz", "buzz"])
@@ -680,35 +680,11 @@ class BaseModel(object):
         # cls._primary_keys is an OrderedDict so no need to sort the keys
         pks = list(cls._primary_keys.keys())
 
-        # Validate that 'keys' is either all dicts or all simple values for
-        # Models that allow that
-        simple_keys = False
-        parameters = []
-        for i, key_values in enumerate(keys):
-            if not isinstance(key_values, dict) and len(pks) == 1 and i == 0:
-                simple_keys = True
+        # Support the "simple" format for Models that allow it
+        if len(pks) == 1 and not isinstance(keys[0], dict):
+            keys = [{pks[0]: value} for value in keys]
 
-            if simple_keys:
-                if isinstance(key_values, dict):
-                    raise TypeError(
-                        "'keys' has a mix of dicts and simple values, must be "
-                        "one or the other for model %s." % cls.__name__
-                    )
-                parameters.append((key_values,))
-            else:
-                if not isinstance(key_values, dict):
-                    raise TypeError(
-                        "All values in 'keys' must be a dict for model %s." % cls.__name__
-                    )
-                else:
-                    try:
-                        parameters.append(tuple(keys[key] for key in pks))
-                    except KeyError:
-                        raise ValueError(
-                            "An element in 'keys' is missing a PRIMARY KEY "
-                            "value for model %s." % cls.__name__
-                        )
-
+        parameters = [tuple(key_values[key] for key in pks) for key_values in keys]
         args_str = " ".join("{key} = ?".format(key) for key in pks)
         statement = conn.session.prepare(
             "SELECT * FROM {cf_name} WHERE {args}".format(
