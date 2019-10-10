@@ -645,14 +645,14 @@ class BaseModel(object):
 
                 class ComplexModel(Model):
                     pk = columns.Text(primary_key=True)  # partition key
-                    ck = colums.Integer(primary_key=True)  # clustering
+                    ck = columns.Integer(primary_key=True)  # clustering
                     value = columns.Text()
 
                 valid_simple = SimpleModel.load_many(conn, ["fizz", "buzz"])
                 valid_simple = SimpleModel.load_many(conn, [{"key": "fizz"}, {"key: "buzz"}])
                 try:
                     invalid_simple = SimpleModel.load_many(conn, ["fizz", {"key: "buzz"}])
-                except TypeError:
+                except Exception:
                     pass
 
                 valid_complex = ComplexModel.load_many(
@@ -664,7 +664,7 @@ class BaseModel(object):
                 )
                 try:
                     invalid_complex = SimpleModel.load_many(conn, [{"pk": "fizz"}])
-                except ValueError:
+                except Exception:
                     pass
 
         :type: List[Dict[str, Any]] or List[Any]
