@@ -20,6 +20,7 @@ from warnings import warn
 
 import six
 
+from cassandra.concurrent import execute_concurrent_with_args
 from cassandra.metadata import protect_name
 from cassandra.util import OrderedDict
 
@@ -623,6 +624,94 @@ class BaseModel(object):
 
     def _execute_query(self, conn, q):
         return conn.execute(q)
+
+    @classmethod
+    def load_many(cls, conn, keys, concurrency=25):
+        """Load multiple models concurrently.
+
+        :param conn: Cassandra connection wrapper used to execute the query.
+        :type: cqlengine.ConnectionInterface subclass
+        :param keys: List of PRIMARY KEY values to load models by.  For simple
+            models with only a single PRIMARY KEY (single partition key and no
+            clustering keys) a simple list of values may be used.  For cases with
+            multiple PRIMARY KEYS, a list of dicts mapping each primary key to
+            it's value must be given.
+
+            .. code-block:: python
+
+                class SimpleModel(Model):
+                    key = columns.Text(primary_key=True)
+                    value = columns.Text()
+
+                class ComplexModel(Model):
+                    pk = columns.Text(primary_key=True)  # partition key
+                    ck = columns.Integer(primary_key=True)  # clustering
+                    value = columns.Text()
+
+                valid_simple = SimpleModel.load_many(conn, ["fizz", "buzz"])
+                valid_simple = SimpleModel.load_many(conn, [{"key": "fizz"}, {"key: "buzz"}])
+                try:
+                    invalid_simple = SimpleModel.load_many(conn, ["fizz", {"key: "buzz"}])
+                except Exception:
+                    pass
+
+                valid_complex = ComplexModel.load_many(
+                    conn=conn,
+                    keys=[
+                        {"pk": "fizz", "ck": "buzz},
+                        {"pk", "foo", "ck": "bar"},
+                    ],
+                )
+                try:
+                    invalid_complex = SimpleModel.load_many(conn, [{"pk": "fizz"}])
+                except Exception:
+                    pass
+
+        :type: List[Dict[str, Any]] or List[Any]
+        :param concurrency: Maximum number of queries to run concurrently.
+        :type: int
+        """
+        if not keys:
+            return []
+
+        if concurrency < 1:
+            raise ValueError("'concurrency' in 'load_many' must be >= 1.")
+
+        # cls._primary_keys is an OrderedDict so no need to sort the keys
+        pks = list(cls._primary_keys.keys())
+
+        # Support the "simple" format for Models that allow it
+        if len(pks) == 1 and not isinstance(keys[0], dict):
+            keys = [{pks[0]: value} for value in keys]
+
+        parameters = [tuple(key_values[key] for key in pks) for key_values in keys]
+        args_str = " AND ".join("{key} = ?".format(key=key) for key in pks)
+        statement = conn.session.prepare(
+            "SELECT * FROM {cf_name} WHERE {args}".format(
+                cf_name=cls.column_family_name(), args=args_str
+            )
+        )
+        results = execute_concurrent_with_args(
+            session=conn.session,
+            statement=statement,
+            parameters=parameters,
+            concurrency=concurrency,
+        )
+        models = []
+        for result in results:
+            if not result.success:
+                raise result.result_or_exc
+            for values in result.result_or_exc:
+                if isinstance(values, tuple) and hasattr(values, "_asdict"):
+                    # Support the default 'row_factory' which returns a namedtuple
+                    values = values._asdict()
+                elif not isinstance(values, dict):
+                    # The 'tuple' row factory is not supported
+                    raise TypeError(
+                        "The type returned by 'session.execute' must be a dict or a namedtuple"
+                    )
+                models.append(cls._construct_instance(values))
+        return models
 
     def save(self, conn):
         """Saves an object to the database.
