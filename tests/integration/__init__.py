@@ -99,13 +99,21 @@ def setup_package():
     create_keyspace_simple(conn, DEFAULT_KEYSPACE, 1)
 
 
-def get_connection(keyspace_name=DEFAULT_KEYSPACE):
+def get_connection(keyspace_name=DEFAULT_KEYSPACE, attempts=5):
     global _connections
     if keyspace_name not in _connections:
 
         c = Cluster(contact_points=["cassandra"], protocol_version=PROTOCOL_VERSION)
-        session = c.connect(keyspace_name)
-        _connections[keyspace_name] = connection.Connection(session)
+        for _ in range(attempts):
+            try:
+                session = c.connect(keyspace_name)
+                _connections[keyspace_name] = connection.Connection(session)
+            except Exception:
+                time.sleep(1)
+            else:
+                break
+        else:
+            raise Exception("Could not connect to cassandra")
     return _connections[keyspace_name]
 
 
