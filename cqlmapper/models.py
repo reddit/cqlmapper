@@ -686,9 +686,11 @@ class BaseModel(object):
 
         parameters = [tuple(key_values[key] for key in pks) for key_values in keys]
         args_str = " AND ".join("{key} = ?".format(key=key) for key in pks)
+        # cls._columns is an OrderedDict so no need to sort the keys
+        cols = ",".join(col for col in cls._columns.keys())
         statement = conn.session.prepare(
-            "SELECT * FROM {cf_name} WHERE {args}".format(
-                cf_name=cls.column_family_name(), args=args_str
+            "SELECT {columns} FROM {cf_name} WHERE {args}".format(
+                columns=cols, cf_name=cls.column_family_name(), args=args_str
             )
         )
         results = execute_concurrent_with_args(
