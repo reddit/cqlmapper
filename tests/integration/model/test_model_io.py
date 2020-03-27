@@ -964,6 +964,11 @@ class SimpleModel(Model):
     value = columns.Text()
 
 
+class DBFieldNameModel(Model):
+    _pk = columns.Text(primary_key=True, db_field="pk")
+    value = columns.Text()
+
+
 class ComplexModel(Model):
     pk = columns.Text(primary_key=True)
     ck = columns.Integer(primary_key=True)
@@ -977,12 +982,14 @@ class TestLoadMany(BaseCassEngTestCase):
         conn = cls.connection()
         sync_table(conn, SimpleModel)
         sync_table(conn, ComplexModel)
+        sync_table(conn, DBFieldNameModel)
         SimpleModel.create(conn, key="alpha", value="omega")
         SimpleModel.create(conn, key="foo", value="bar")
         SimpleModel.create(conn, key="zip", value="zap")
         ComplexModel.create(conn, pk="fizz", ck=0, value="buzz")
         ComplexModel.create(conn, pk="fizz", ck=1, value="hunter2")
         ComplexModel.create(conn, pk="key", ck=0, value="value")
+        DBFieldNameModel.create(conn, _pk="hunter", value="42")
 
     @classmethod
     def tearDownClass(cls):
@@ -990,6 +997,7 @@ class TestLoadMany(BaseCassEngTestCase):
         conn = cls.connection()
         drop_table(conn, SimpleModel)
         drop_table(conn, ComplexModel)
+        drop_table(conn, DBFieldNameModel)
 
     def test_empty_keys(self):
         conn = Mock()
@@ -1048,3 +1056,9 @@ class TestLoadMany(BaseCassEngTestCase):
     def test_complex_model_simple_input(self):
         with self.assertRaises(TypeError):
             ComplexModel.load_many(self.conn, ["fizz"])
+
+    def test_db_field_name_models(self):
+        models = DBFieldNameModel.load_many(self.conn, ["hunter"])
+        self.assertEqual(models, [DBFieldNameModel(_pk="hunter", value="42")])
+        models = DBFieldNameModel.load_many(self.conn, [{"pk": "hunter"}])
+        self.assertEqual(models, [DBFieldNameModel(_pk="hunter", value="42")])
