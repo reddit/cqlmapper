@@ -635,7 +635,10 @@ class BaseModel(object):
             models with only a single PRIMARY KEY (single partition key and no
             clustering keys) a simple list of values may be used.  For cases with
             multiple PRIMARY KEYS, a list of dicts mapping each primary key to
-            it's value must be given.
+            it's value must be given.  The primary key name given in this dict must
+            match the table name, so if you are using `db_field` in that column, you
+            should use _that_ value, not the name of the Column field on your
+            cqlmapper model.
 
             .. code-block:: python
 
@@ -646,6 +649,10 @@ class BaseModel(object):
                 class ComplexModel(Model):
                     pk = columns.Text(primary_key=True)  # partition key
                     ck = columns.Integer(primary_key=True)  # clustering
+                    value = columns.Text()
+
+                class DBFieldModel(Model):
+                    _key = columns.Text(primary_key=True, db_field="key")
                     value = columns.Text()
 
                 valid_simple = SimpleModel.load_many(conn, ["fizz", "buzz"])
@@ -667,6 +674,13 @@ class BaseModel(object):
                 except Exception:
                     pass
 
+                valid_db_field = DBFieldModel.load_many(conn, ["fizz", "buzz"])
+                valid_db_field = DBFieldModel.load_many(conn, [{"key": "fizz"}, {"key: "buzz"}])
+                try:
+                    invalid_db_field = DBFieldModel.load_many(conn, [{"_key: "buzz"}])
+                except Exception:
+                    pass
+
         :type: List[Dict[str, Any]] or List[Any]
         :param concurrency: Maximum number of queries to run concurrently.
         :type: int
@@ -678,7 +692,7 @@ class BaseModel(object):
             raise ValueError("'concurrency' in 'load_many' must be >= 1.")
 
         # cls._primary_keys is an OrderedDict so no need to sort the keys
-        pks = list(cls._primary_keys.keys())
+        pks = [col.db_field_name for col in cls._primary_keys.values()]
 
         # Support the "simple" format for Models that allow it
         if len(pks) == 1 and not isinstance(keys[0], dict):
@@ -687,7 +701,7 @@ class BaseModel(object):
         parameters = [tuple(key_values[key] for key in pks) for key_values in keys]
         args_str = " AND ".join("{key} = ?".format(key=key) for key in pks)
         # cls._columns is an OrderedDict so no need to sort the keys
-        cols = ",".join(col for col in cls._columns.keys())
+        cols = ",".join(col.db_field_name for col in cls._columns.values())
         statement = conn.session.prepare(
             "SELECT {columns} FROM {cf_name} WHERE {args}".format(
                 columns=cols, cf_name=cls.column_family_name(), args=args_str
