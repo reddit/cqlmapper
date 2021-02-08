@@ -15,8 +15,6 @@
 # limitations under the License.
 from datetime import datetime
 from datetime import timedelta
-from tests.integration import execute_count
-from tests.integration.base import BaseCassEngTestCase
 from uuid import uuid4
 
 from cqlmapper import columns
@@ -24,6 +22,8 @@ from cqlmapper.functions import get_total_seconds
 from cqlmapper.management import drop_table
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
+from tests.integration import execute_count
+from tests.integration.base import BaseCassEngTestCase
 
 
 class DateTimeQueryTestModel(Model):

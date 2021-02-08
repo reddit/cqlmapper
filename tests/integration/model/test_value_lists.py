@@ -15,12 +15,11 @@
 # limitations under the License.
 import random
 
-from tests.integration.base import BaseCassEngTestCase
-
 from cqlmapper import columns
 from cqlmapper.management import drop_table
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestModel(Model):

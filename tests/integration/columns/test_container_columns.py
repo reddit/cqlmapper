@@ -20,9 +20,6 @@ import traceback
 
 from datetime import datetime
 from datetime import timedelta
-from tests.integration import CASSANDRA_VERSION
-from tests.integration import is_prepend_reversed
-from tests.integration.base import BaseCassEngTestCase
 from uuid import uuid4
 
 import six
@@ -36,6 +33,9 @@ from cqlmapper.management import drop_table
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
 from cqlmapper.models import ValidationError
+from tests.integration import CASSANDRA_VERSION
+from tests.integration import is_prepend_reversed
+from tests.integration.base import BaseCassEngTestCase
 
 log = logging.getLogger(__name__)
 

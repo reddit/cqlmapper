@@ -17,8 +17,6 @@ import re
 
 from datetime import datetime
 from datetime import timedelta
-from tests.integration.base import BaseCassEngTestCase
-from tests.integration.base import main
 from unittest import mock
 from uuid import uuid4
 
@@ -26,6 +24,8 @@ from cqlmapper import columns
 from cqlmapper.batch import Batch
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
+from tests.integration.base import BaseCassEngTestCase
+from tests.integration.base import main
 
 
 class TestTimestampModel(Model):

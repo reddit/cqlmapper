@@ -15,7 +15,6 @@
 # limitations under the License.
 import copy
 
-from tests.integration.base import BaseCassEngTestCase
 from unittest.mock import patch
 
 import six
@@ -26,6 +25,7 @@ from cqlmapper.management import _update_options
 from cqlmapper.management import drop_table
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
+from tests.integration.base import BaseCassEngTestCase
 
 
 class LeveledCompactionTestTable(Model):
