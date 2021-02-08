@@ -14,21 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from setuptools import setup, find_packages
+from setuptools import find_packages
+from setuptools import setup
 
 
 setup(
-    name="cqlmapper",
-    version="0.2.4",
-    packages=find_packages(),
-    install_requires=[
-        "cassandra-driver",
-        "six>=1.6",
+    author="reddit",
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "License :: OSI Approved :: Apache Software License",
+        "Topic :: Database",
+        "Topic :: Software Development :: Libraries",
     ],
+    description="a fork of cqlengine modified to work in baseplate.py applications",
     include_package_data=True,
-    tests_require=[
-        "mock",
-        "nose",
-        "coverage",
-    ],
+    install_requires=["cassandra-driver", "six>=1.6"],
+    long_description_content_type="text/x-rst",
+    long_description=open("README.rst").read(),
+    name="reddit_cqlmapper",
+    packages=find_packages(),
+    setup_requires=["setuptools_scm"],
+    tests_require=["mock", "nose", "coverage"],
+    url="https://github.com/reddit/cqlmapper",
+    use_scm_version=True,
 )
