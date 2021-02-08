@@ -15,8 +15,6 @@
 # limitations under the License.
 import warnings
 
-from tests.integration import execute_count
-from tests.integration.base import BaseCassEngTestCase
 from unittest import mock
 
 from cqlmapper import columns
@@ -25,6 +23,8 @@ from cqlmapper.batch import Batch
 from cqlmapper.management import drop_table
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
+from tests.integration import execute_count
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestMultiKeyModel(Model):

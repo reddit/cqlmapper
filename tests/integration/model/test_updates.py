@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from tests.integration.base import BaseCassEngTestCase
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -22,6 +21,7 @@ from cqlmapper import ValidationError
 from cqlmapper.management import drop_table
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestUpdateModel(Model):

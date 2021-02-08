@@ -1,2 +1,2 @@
-cassandra-driver==3.17.0
+cassandra-driver==3.24.0
 six==1.12.0

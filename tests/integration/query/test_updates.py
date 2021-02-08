@@ -13,9 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from tests.integration import execute_count
-from tests.integration import is_prepend_reversed
-from tests.integration.base import BaseCassEngTestCase
 from uuid import uuid4
 
 from cqlmapper import columns
@@ -23,6 +20,9 @@ from cqlmapper import ValidationError
 from cqlmapper.management import drop_table
 from cqlmapper.management import sync_table
 from cqlmapper.models import Model
+from tests.integration import execute_count
+from tests.integration import is_prepend_reversed
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestQueryUpdateModel(Model):

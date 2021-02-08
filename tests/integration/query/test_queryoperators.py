@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from datetime import datetime
-from tests.integration import execute_count
-from tests.integration.base import BaseCassEngTestCase
 
 from cqlmapper import columns
 from cqlmapper import functions
@@ -25,6 +23,8 @@ from cqlmapper.management import sync_table
 from cqlmapper.models import Model
 from cqlmapper.operators import EqualsOperator
 from cqlmapper.statements import WhereClause
+from tests.integration import execute_count
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestQuerySetOperation(BaseCassEngTestCase):

@@ -15,7 +15,6 @@
 # limitations under the License.
 import warnings
 
-from tests.integration.base import BaseCassEngTestCase
 from uuid import uuid4
 
 from cqlmapper import columns
@@ -25,6 +24,7 @@ from cqlmapper.models import ModelDefinitionException
 from cqlmapper.models import ModelException
 from cqlmapper.query import DMLQuery
 from cqlmapper.query_set import ModelQuerySet
+from tests.integration.base import BaseCassEngTestCase
 
 
 class TestModelClassFunction(BaseCassEngTestCase):

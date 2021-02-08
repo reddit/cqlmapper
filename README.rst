@@ -15,8 +15,8 @@ Major changes:
       as the `conn` argument to functions rather than using the `Model.batch`
       syntax of cqlengine
 
-Example usage:
-::
+Example usage::
+
     import uuid
 
     from cassandra.cluster import Cluster
