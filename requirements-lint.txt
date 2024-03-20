@@ -3,7 +3,7 @@
 appdirs==1.4.3
 aspy.refactor-imports==1.1.0
 astroid==2.2.5
-black==19.3b0
+black==24.3.0
 cached-property==1.5.1
 Click==7.0
 entrypoints==0.3
